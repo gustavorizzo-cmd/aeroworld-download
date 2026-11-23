@@ -24,6 +24,10 @@ func rodar(p_jogo) -> void:
 			await _basico()
 		"perseguicao":
 			await _perseguicao()
+		"parado":
+			_parado()
+		"renascer":
+			_renascer()
 		"fotos":
 			await _basico()
 			await _perseguicao()
@@ -286,3 +290,44 @@ func _perseguicao() -> void:
 	jogo.hud.alternar_mapa()
 	await foto("06_mapa")
 	jogo.hud.alternar_mapa()
+
+
+## Reproduz "a policia me prende quando eu nasco": fica parado no inicio e depois anda a pe.
+func _parado() -> void:
+	for i in 24:
+		sim(2.5)
+		var p = jogo.policia
+		var perto := 99999.0
+		for v in jogo.veiculos:
+			if v.policia:
+				perto = minf(perto, v.pos.distance_to(jogo.jogador.posicao()))
+		estado("t=%.0f viatura a %.0f m prend=%.1f" % [jogo.tempo, perto, p.prendendo])
+
+
+## Bug relatado: depois de preso, ao renascer na casa segura a policia prendia de novo.
+func _renascer() -> void:
+	var p = jogo.policia
+	var meu = null
+	for v in jogo.veiculos:
+		if v.do_jogador:
+			meu = v
+	jogo.jogador.pos = meu.pos + Vector2(-1.5, 1.8)
+	sim(0.2)
+	apertar("acao")
+	meu.pos = Vector2(-34, 120)
+	meu.vel = Vector2.ZERO
+	p.aplicar(2)
+	p._perseguir_agora()
+	p.spawn_unidade()
+	p.spawn_unidade()
+	var prisoes := 0
+	var estava_preso := false
+	for i in 120:
+		sim(0.5)
+		if jogo.cena_prisao > 0.0 and not estava_preso:
+			prisoes += 1
+			estado("PRESO #%d" % prisoes)
+		estava_preso = jogo.cena_prisao > 0.0
+	estado("fim")
+	checar(prisoes == 1, "preso só uma vez (sem prisão em ciclo ao renascer)")
+	checar(p.estrelas == 0, "sem estrelas depois de renascer")

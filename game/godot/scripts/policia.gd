@@ -38,6 +38,7 @@ var t_spawn := 0.0
 var cd_batida := 0.0
 var cd_bloqueio := 6.0
 var prendendo := 0.0
+var carencia := 3.0  # segundos sem a policia agir (inicio do jogo e depois de preso)
 var bloqueios: Array = []
 var heli = null
 var luz_heli: SpotLight3D
@@ -200,6 +201,11 @@ func evento_batida(a, b, forca: float) -> void:
 	if meu == null:
 		return
 	var outro = b if meu == a else a
+	# quem bateu em quem? compara a velocidade de cada carro na direcao do outro
+	var dir: Vector2 = (outro.pos - meu.pos).normalized()
+	var culpa_minha: bool = meu.vel.dot(dir) > -outro.vel.dot(dir) + 1.0
+	if not culpa_minha or carencia > 0.0:
+		return
 	if outro.policia and outro.motorista == "ia" and cd_batida <= 0.0:
 		cd_batida = 4.0
 		registrar(meu, -1)
@@ -220,8 +226,11 @@ func atualizar(dt: float) -> void:
 	cd_batida -= dt
 	cd_bloqueio -= dt
 
+	if carencia > 0.0:
+		carencia -= dt
+		vendo = false
 	t_visao -= dt
-	if t_visao <= 0.0:
+	if carencia <= 0.0 and t_visao <= 0.0:
 		t_visao = 0.15
 		vendo = false
 		for v in olhos():
@@ -290,6 +299,10 @@ func limpar() -> void:
 	modo = "limpo"
 	zona = null
 	prendendo = 0.0
+	vendo = false
+	t_visao = 0.0
+	sem_ver = 0.0
+	carencia = 6.0
 	limpar_ficha("tudo")
 	dispensar()
 	for b in bloqueios.duplicate():
@@ -428,7 +441,7 @@ func _conduzir_unidades(dt: float) -> void:
 # ------------------------------------------------------------------ prisao
 func _atualizar_prisao(dt: float) -> void:
 	var jj = j()
-	if estrelas == 0 or modo != "perseguicao":
+	if estrelas == 0 or modo != "perseguicao" or carencia > 0.0 or jogo.cena_prisao > 0.0:
 		prendendo = maxf(0.0, prendendo - dt * 2.0)
 		return
 	var lento: bool = jj.velocidade() < (2.0 if jj.veiculo else 3.5)

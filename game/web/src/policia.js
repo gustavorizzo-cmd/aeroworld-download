@@ -25,6 +25,7 @@ export class Policia {
     this.cdBatida = 0;
     this.cdBloqueio = 6;
     this.prendendo = 0;
+    this.carencia = 3; // segundos sem a policia agir (inicio do jogo e depois de preso)
     this.bloqueios = [];
     this.heli = null;
     // luz do helicoptero criada desde o inicio (adicionar luz depois recompila todos os shaders)
@@ -162,6 +163,11 @@ export class Policia {
     const meu = a.motorista === 'jogador' ? a : b.motorista === 'jogador' ? b : null;
     if (!meu) return;
     const outro = meu === a ? b : a;
+    // quem bateu em quem? compara a velocidade de cada carro na direcao do outro
+    const dl = Math.hypot(outro.x - meu.x, outro.z - meu.z) || 1;
+    const dx = (outro.x - meu.x) / dl, dz = (outro.z - meu.z) / dl;
+    const culpaMinha = meu.vx * dx + meu.vz * dz > -(outro.vx * dx + outro.vz * dz) + 1;
+    if (!culpaMinha || this.carencia > 0) return;
     if (outro.policia && outro.motorista === 'ia' && this.cdBatida <= 0) {
       this.cdBatida = 4;
       this.registrar({ carro: meu, roupa: null });
@@ -183,8 +189,12 @@ export class Policia {
     this.cdBatida -= dt;
     this.cdBloqueio -= dt;
 
+    if (this.carencia > 0) {
+      this.carencia -= dt;
+      this.vendo = false;
+    }
     this.tVisao -= dt;
-    if (this.tVisao <= 0) {
+    if (this.carencia <= 0 && this.tVisao <= 0) {
       this.tVisao = 0.15;
       this.vendo = false;
       for (const v of this.olhos()) {
@@ -257,6 +267,10 @@ export class Policia {
     this.modo = 'limpo';
     this.zona = null;
     this.prendendo = 0;
+    this.vendo = false;
+    this.tVisao = 0;
+    this.semVer = 0;
+    this.carencia = 6;
     this.limparFicha('tudo');
     this.dispensar();
     for (const b of [...this.bloqueios]) this.removerBloqueio(b);
@@ -391,7 +405,7 @@ export class Policia {
   // ------------------------------------------------------------------ prisao
   atualizarPrisao(dt) {
     const j = this.j;
-    if (this.estrelas === 0 || this.modo !== 'perseguicao') {
+    if (this.estrelas === 0 || this.modo !== 'perseguicao' || this.carencia > 0 || this.jogo.cenaPrisao) {
       this.prendendo = Math.max(0, this.prendendo - dt * 2);
       return;
     }
