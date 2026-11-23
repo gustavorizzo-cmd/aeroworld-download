@@ -30,6 +30,8 @@ func rodar(p_jogo) -> void:
 			_renascer()
 		"interacoes":
 			await _interacoes()
+		"visual":
+			await _visual()
 		"placa":
 			var a: Vector2 = jogo.mapa.poi["arsenal"]["p"]
 			jogo.jogador.pos = a + Vector2(-4, -6)
@@ -405,7 +407,9 @@ func _interacoes() -> void:
 		if not pd.caido and pd.estado == "andando":
 			alvo = pd
 			break
-	jj.pos = alvo.pos + Vector2(7, 0)
+	# na mesma calcada, 7 m atras do pedestre (fora da rua)
+	jj.pos = alvo.bloco["c"] + Pedestres.pos_perimetro(alvo.s - 7.0 * alvo.dir)["p"]
+	jj.caido = 0.0
 	jj.h = U.heading_de(alvo.pos - jj.pos)
 	jj.obj.position = Vector3(jj.pos.x, jj.y, jj.pos.y)
 	var olho := Vector3(jj.pos.x, jj.y + 1.7, jj.pos.y) - Vector3(U.frente(jj.h).x, 0, U.frente(jj.h).y) * 2.0
@@ -433,11 +437,12 @@ func _interacoes() -> void:
 	sim(7.0)
 	p.aplicar(3)
 	p._perseguir_agora()
+	p.registrar(null, jj.roupa_id)  # a policia conhece a roupa: reconhece de mais longe
 	p.spawn_unidade()
 	p.spawn_unidade()
 	var antes: float = jj.vida + jj.colete
 	var tiros_antes: int = jogo.armas.tiros_policia
-	for i in 30:
+	for i in 45:
 		sim(1.0)
 		if jogo.cena_prisao > 0.0 or jj.vida + jj.colete < antes:
 			break
@@ -501,3 +506,66 @@ func _interacoes() -> void:
 	jogo.preso()
 	checar(not jogo.armas.tem("pistola"), "preso perde as armas")
 	sim(3.0)
+
+
+## Fotos para conferir o visual e a animacao (rodar com janela, Forward+ se houver Vulkan).
+func _visual() -> void:
+	var jj = jogo.jogador
+	var poi: Dictionary = jogo.mapa.poi
+	jogo.policia.carencia = 9999.0
+	print("    renderizador: ", RenderingServer.get_current_rendering_method())
+	# calcada do Suburbio, andando para o norte
+	jj.pos = poi["casa"]["p"] + Vector2(10.0, -14.0)
+	jj.h = 0.0
+	jogo.camera.yaw = 0.0
+	sim(1.0)
+	jogo.entrada.segurar("frente", true)
+	sim(1.15)
+	await foto("v1_andando")
+	_camera_lado(jj, 3.2)
+	await foto("v2_andando_lado")
+	jogo.entrada.segurar("correr", true)
+	sim(1.0)
+	_camera_lado(jj, 3.6)
+	await foto("v3_correndo_lado")
+	jogo.entrada.segurar("correr", false)
+	jogo.entrada.segurar("frente", false)
+	sim(1.5)
+	_camera_lado(jj, 3.0)
+	await foto("v4_parado_lado")
+	# carro na curva
+	var meu = null
+	for v in jogo.veiculos:
+		if v.do_jogador and not v.missao:
+			meu = v
+	jj.pos = meu.pos + Vector2(-1.5, 1.8)
+	sim(0.2)
+	apertar("acao")
+	meu.pos = Mapa.nodo_pos(Vector2i(3, 4)) + Vector2(2.0, 40.0)
+	meu.h = 0.0
+	meu.vel = Vector2(0, -22)
+	jogo.entrada.segurar("frente", true)
+	sim(1.0)
+	jogo.entrada.segurar("direita", true)
+	sim(0.45)
+	await foto("v5_curva")
+	jogo.entrada.segurar("direita", false)
+	jogo.entrada.segurar("frente", false)
+	jogo.entrada.segurar("freio_mao", true)
+	sim(0.4)
+	await foto("v6_freio_de_mao")
+	jogo.entrada.segurar("freio_mao", false)
+	# vista da rua do Centro
+	jogo.camera.global_position = Vector3(36.0 + 3.0, 2.2, 60.0)
+	jogo.camera.look_at(Vector3(36.0 - 1.0, 4.0, -40.0), Vector3.UP)
+	await foto("v7_rua_centro")
+	jogo.camera.global_position = Vector3(150.0, 30.0, 120.0)
+	jogo.camera.look_at(Vector3(60.0, 0.0, 20.0), Vector3.UP)
+	await foto("v8_cidade")
+
+
+func _camera_lado(jj, d: float) -> void:
+	var lado := U.direita(jj.h)
+	var p := Vector3(jj.pos.x, jj.y + 1.1, jj.pos.y)
+	jogo.camera.global_position = p + Vector3(lado.x, 0.0, lado.y) * d + Vector3(0, 0.3, 0)
+	jogo.camera.look_at(p, Vector3.UP)

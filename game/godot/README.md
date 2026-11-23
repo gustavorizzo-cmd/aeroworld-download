@@ -1,7 +1,21 @@
 # Porto Brasa — projeto Godot 4
 
-Versão 0.2 do jogo na **Godot 4.4** (GDScript), com os modelos do Blender.
-Tem tudo da v0.1 (que também existe na versão de navegador) e mais:
+Versão 0.3 do jogo na **Godot 4.4** (GDScript), com os modelos do Blender.
+
+**Novo na 0.3 (visual e animação):**
+- Renderizador **Forward+** (Vulkan) com oclusão ambiente, reflexos, brilho,
+  neblina e sombras suaves. Se o PC não tiver Vulkan, a Godot volta sozinha
+  para o modo Compatibility (OpenGL).
+- Texturas geradas por código (asfalto, calçada de pedra, concreto, grama,
+  areia, água em movimento), aplicadas sem precisar de UV (projeção triplanar).
+- Carros com pintura de verniz, vidros que refletem, carroceria que inclina na
+  curva, na freada e na aceleração, luz de freio e fumaça dos pneus.
+- Personagens novos com **joelhos e cotovelos** e animação procedural:
+  caminhada, corrida (inclina o tronco), respiração parado, mira, soco,
+  telefone, queda suave e transições sem tranco.
+- Câmera mais suave, que treme nas batidas e explosões.
+
+Tudo da 0.2 continua:
 
 - **Mercado:** entre com E nas lojas "MERCADO" (ícone M verde no mapa).
   Água de coco, pastel e kit médico recuperam a vida. Armado, dá para
@@ -83,6 +97,8 @@ scripts/
   camera_jogo.gd       câmera em 3ª pessoa
   audio_jogo.gd        sons sintetizados (sem arquivos)
   entrada.gd           teclado, mouse e controle
+  animacao.gd          animação procedural do corpo (joelhos, cotovelos, tronco)
+  visual.gd            texturas geradas, verniz, vidros, fumaça
 testes/teste_jogo.gd   testes automáticos
 ```
 
@@ -99,6 +115,7 @@ godot --headless --path game/godot -- --teste=perseguicao  # 4 estrelas, helicó
 godot --headless --path game/godot -- --teste=interacoes   # celular, táxi, Arsenal, tiros, hospital, assalto
 godot --headless --path game/godot -- --teste=renascer     # sem prisão em ciclo ao renascer
 PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=fotos  # tudo + capturas de tela
+PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=visual # fotos da animação, carro e ruas
 ```
 
 Cada teste imprime `[ok]` ou `[FALHOU]` por item e um `RESULTADO` no final.

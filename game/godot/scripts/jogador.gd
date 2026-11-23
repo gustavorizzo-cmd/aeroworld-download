@@ -17,6 +17,8 @@ var roupa_id := 0
 var mat_camisa: Array = []
 var mat_calca: Array = []
 var membros: Array = []
+var anim: AnimHumano
+var queda := 0.0  # 0 em pe, 1 deitado (suavizado)
 var pos := Vector2.ZERO
 var h := 0.0
 var y := 0.17
@@ -39,6 +41,7 @@ func _init(p_jogo, x: float, z: float) -> void:
 		if no:
 			no.rotation_order = EULER_ORDER_XYZ
 		membros.append(no)
+	anim = AnimHumano.new(obj)
 	pos = Vector2(x, z)
 	jogo.add_child(obj)
 
@@ -162,9 +165,7 @@ func atualizar(dt: float, entrada, yaw_camera: float) -> void:
 	var mirando: bool = jogo.armas.mirando
 	if caido > 0.0:
 		caido -= dt
-		obj.rotation.x = -PI / 2.0
 	else:
-		obj.rotation.x = 0.0
 		var dir := U.frente(yaw_camera) * ex.y + U.direita(yaw_camera) * ex.x
 		var mag := minf(1.0, dir.length())
 		var alvo_vel := 0.0
@@ -195,21 +196,15 @@ func atualizar(dt: float, entrada, yaw_camera: float) -> void:
 					jogo.hud.mensagem("Você foi atropelado!", 1.5)
 	y = U.suavizar(y, jogo.mapa.altura_chao(pos.x, pos.y), 15.0, dt)
 
-	# animacao procedural
-	var amp := minf(1.0, vel / 7.0) * 0.95
-	fase += vel * dt * 1.9
-	var s := sin(fase) * amp
-	var giros := [s, -s, -s, s]
+	# animacao procedural (joelhos, cotovelos, tronco) com transicoes suaves
 	t_soco = maxf(0.0, t_soco - dt)
 	var armado: bool = jogo.armas.armado()
-	if mirando and armado:
-		var mira: float = jogo.camera.mira_pitch
-		giros[1] = PI / 2.0 + mira
-		giros[0] = PI / 2.0 - 0.3 + mira
-	elif t_soco > 0.0:
-		giros[1] = PI / 2.0 * (t_soco / 0.25)
-	for i in membros.size():
-		if membros[i]:
-			membros[i].rotation.x = giros[i]
-	obj.position = Vector3(pos.x, y, pos.y)
-	obj.rotation.y = h
+	var b := anim.atualizar(dt, vel if caido <= 0.0 else 0.0, {
+		"mirando": mirando and armado,
+		"mira_pitch": jogo.camera.mira_pitch,
+		"soco": t_soco / 0.25 if t_soco > 0.0 else 0.0,
+	})
+	# cair e levantar sem "pulo" de pose
+	queda = U.suavizar(queda, 1.0 if (caido > 0.0 or jogo.cena_hospital > 0.0) else 0.0, 7.0, dt)
+	obj.position = Vector3(pos.x, y + b, pos.y)
+	obj.rotation = Vector3(-PI / 2.0 * queda, h, 0.0)

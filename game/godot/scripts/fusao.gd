@@ -52,9 +52,7 @@ static func _ajustar_material(m: Material) -> void:
 			b.albedo_color = b.albedo_color.darkened(0.6)
 	if b.resource_name in ["Calcada", "Asfalto", "Meio_Fio", "Concreto", "Concreto_Escuro", "Faixa_Branca"]:
 		b.metallic_specular = 0.15
-	if b.resource_name.begins_with("Vidro"):
-		b.metallic = minf(b.metallic, 0.3)
-		b.roughness = maxf(b.roughness, 0.25)
+	Visual.ajustar_importado(b)
 
 
 func _visitar(no: Node, acc: Transform3D, lista: Array) -> void:

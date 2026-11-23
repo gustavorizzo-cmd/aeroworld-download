@@ -11,6 +11,20 @@ var alvo := Vector3.ZERO
 var pos_suave := Vector3(0, 10, 10)
 var mapa
 var mira_pitch := 0.0  # para cima > 0 (modo mira)
+var tremor := 0.0
+var _olhar_suave := Vector3.ZERO
+
+
+## Tremor de camera (batidas, explosoes); decai sozinho.
+func tremer(forca: float) -> void:
+	tremor = minf(1.0, maxf(tremor, forca))
+
+
+func _aplicar_tremor(dt: float) -> void:
+	if tremor <= 0.001:
+		return
+	position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * tremor * 0.25
+	tremor = maxf(0.0, tremor - dt * 2.5)
 
 
 func atualizar(dt: float, jogo, entrada) -> void:
@@ -57,12 +71,15 @@ func atualizar(dt: float, jogo, entrada) -> void:
 		d -= 0.5
 	var cp := cos(pitch)
 	var desejada := Vector3(alvo.x + atras.x * cp * d, alvo.y + sin(pitch) * d, alvo.z + atras.y * cp * d)
-	pos_suave = pos_suave.lerp(desejada, 1.0 - exp(-12.0 * dt))
+	pos_suave = pos_suave.lerp(desejada, 1.0 - exp(-(9.0 if v else 12.0) * dt))
 	position = pos_suave
 	var f := U.frente(yaw)
 	var olhar := Vector3(alvo.x + f.x * 2.0, alvo.y, alvo.z + f.y * 2.0)
-	if position.distance_to(olhar) > 0.1:
-		look_at(olhar, Vector3.UP)
+	# o ponto olhado tambem e suavizado: menos tranco nas batidas e curvas
+	_olhar_suave = olhar if _olhar_suave == Vector3.ZERO else _olhar_suave.lerp(olhar, 1.0 - exp(-16.0 * dt))
+	_aplicar_tremor(dt)
+	if position.distance_to(_olhar_suave) > 0.1:
+		look_at(_olhar_suave, Vector3.UP)
 	var fov_alvo := 62.0 + (minf(v.velocidade(), 40.0) * 0.3 if v else 0.0)
 	fov = U.suavizar(fov, fov_alvo, 3.0, dt)
 

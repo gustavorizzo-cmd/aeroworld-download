@@ -379,38 +379,73 @@ def helicoptero_policia(raiz):
 # PERSONAGENS (membros separados, pivo nas articulacoes)
 # ==========================================================================
 def humano(raiz, camisa, calca, sapato, policial=False):
+    """Corpo com articulacoes para animacao fluida.
+
+    Hierarquia (pivos nas articulacoes):
+      raiz -> tronco (quadril) -> cabeca (pescoco)
+                               -> braco_esq/dir (ombro) -> antebraco_esq/dir (cotovelo)
+           -> perna_esq/dir (quadril) -> canela_esq/dir (joelho)
+    """
+    manga = camisa
+    pele_braco = camisa if policial else PELE
+    # pernas: coxa + joelho, canela + sapato
     for lado, s in (("esq", -1), ("dir", 1)):
         p = Malha("perna_" + lado)
-        p.caixa((0.17, 0.2, 0.82), (0, 0, -0.44), calca, bisel=0.02)
-        p.caixa((0.18, 0.3, 0.1), (0, 0.04, -0.9), sapato, bisel=0.02)
-        p.objeto(raiz, (s * 0.115, 0, 0.95))
+        p.cilindro(0.068, 0.085, 0.46, (0, 0, -0.22), calca, seg=10, liso=True)
+        p.esfera(0.066, (0, 0, -0.45), calca, seg=10, aneis=6)
+        coxa = p.objeto(raiz, (s * 0.1, 0, 0.95))
+        c = Malha("canela_" + lado)
+        c.cilindro(0.05, 0.064, 0.42, (0, 0, -0.21), calca, seg=10, liso=True)
+        c.caixa((0.1, 0.25, 0.08), (0, 0.05, -0.46), sapato, bisel=0.03)
+        c.objeto(coxa, (0, 0, -0.45))
+    # tronco: quadril, cintura mais fina, ombros largos
     t = Malha("tronco")
-    t.caixa((0.46, 0.25, 0.6), (0, 0, 0.32), camisa, bisel=0.04)
-    t.caixa((0.44, 0.24, 0.12), (0, 0, 0.03), PRETO if policial else calca, bisel=0.02)
-    t.cilindro(0.06, 0.06, 0.1, (0, 0, 0.66), PELE, seg=8)
-    if policial:
-        t.caixa((0.49, 0.29, 0.38), (0, 0, 0.38), PRETO, bisel=0.03)  # colete
-        t.caixa((0.08, 0.06, 0.08), (0.12, 0.15, 0.48), mat("Distintivo", "#d6b33c", 0.3, 0.9))
-    t.objeto(raiz, (0, 0, 0.95))
-    h = Malha("cabeca")
-    h.caixa((0.25, 0.27, 0.28), (0, 0, 0.15), PELE, bisel=0.04)
+    t.prisma([(-0.17, -0.11, -0.06), (0.17, -0.11, -0.06), (0.17, 0.11, -0.06), (-0.17, 0.11, -0.06)],
+             [(-0.18, -0.115, 0.12), (0.18, -0.115, 0.12), (0.18, 0.115, 0.12), (-0.18, 0.115, 0.12)],
+             PRETO if policial else calca)
+    t.prisma([(-0.175, -0.11, 0.1), (0.175, -0.11, 0.1), (0.175, 0.11, 0.1), (-0.175, 0.11, 0.1)],
+             [(-0.235, -0.125, 0.58), (0.235, -0.125, 0.58), (0.235, 0.125, 0.58), (-0.235, 0.125, 0.58)],
+             camisa)
     for s in (-1, 1):
-        h.caixa((0.04, 0.02, 0.04), (s * 0.06, 0.136, 0.18), OLHO)
-    h.caixa((0.04, 0.04, 0.06), (0, 0.145, 0.12), PELE)
+        t.esfera(0.085, (s * 0.235, 0, 0.545), camisa, seg=10, aneis=6)
+    t.cilindro(0.052, 0.056, 0.12, (0, 0, 0.635), PELE, seg=10, liso=True)
+    if policial:
+        t.prisma([(-0.195, -0.135, 0.2), (0.195, -0.135, 0.2), (0.195, 0.135, 0.2), (-0.195, 0.135, 0.2)],
+                 [(-0.235, -0.14, 0.55), (0.235, -0.14, 0.55), (0.235, 0.14, 0.55), (-0.235, 0.14, 0.55)],
+                 PRETO)
+        t.caixa((0.07, 0.02, 0.08), (0.11, 0.145, 0.45), mat("Distintivo", "#d6b33c", 0.3, 0.9))
+    tronco = t.objeto(raiz, (0, 0, 0.95))
+    # cabeca
+    h = Malha("cabeca")
+    h.caixa((0.21, 0.24, 0.26), (0, 0.005, 0.135), PELE, bisel=0.07)
+    for s in (-1, 1):
+        h.caixa((0.035, 0.015, 0.03), (s * 0.052, 0.125, 0.16), OLHO)
+        h.caixa((0.06, 0.012, 0.012), (s * 0.055, 0.124, 0.192), CABELO)
+        h.caixa((0.025, 0.05, 0.07), (s * 0.108, 0.0, 0.13), PELE, bisel=0.01)
+    h.caixa((0.035, 0.04, 0.06), (0, 0.135, 0.12), PELE, bisel=0.01)
+    h.caixa((0.07, 0.012, 0.014), (0, 0.123, 0.07), mat("Boca", "#7a3b2e", 0.6))
     if policial:
         q = mat("Quepe", "#1a2747", 0.6)
-        h.cilindro(0.155, 0.16, 0.1, (0, 0, 0.32), q, seg=12)
-        h.caixa((0.22, 0.12, 0.02), (0, 0.17, 0.28), PRETO)
+        h.cilindro(0.135, 0.14, 0.1, (0, 0, 0.29), q, seg=14, liso=True)
+        h.caixa((0.2, 0.11, 0.02), (0, 0.15, 0.245), PRETO)
     else:
-        h.caixa((0.27, 0.29, 0.07), (0, -0.01, 0.3), CABELO, bisel=0.02)
-        h.caixa((0.27, 0.06, 0.18), (0, -0.13, 0.2), CABELO)
-    h.objeto(raiz, (0, 0, 1.62))
+        h.caixa((0.23, 0.26, 0.07), (0, -0.005, 0.27), CABELO, bisel=0.03)
+        h.caixa((0.23, 0.06, 0.17), (0, -0.115, 0.2), CABELO, bisel=0.02)
+    h.objeto(tronco, (0, 0, 0.68))
+    # bracos: braco (manga) + cotovelo, antebraco + mao
     for lado, s in (("esq", -1), ("dir", 1)):
         a = Malha("braco_" + lado)
-        a.caixa((0.13, 0.14, 0.32), (0, 0, -0.15), camisa, bisel=0.02)
-        a.caixa((0.11, 0.12, 0.34), (0, 0, -0.47), camisa if policial else PELE, bisel=0.02)
-        a.caixa((0.1, 0.1, 0.1), (0, 0, -0.69), PELE, bisel=0.02)
-        a.objeto(raiz, (s * 0.3, 0, 1.53))
+        if policial:
+            a.cilindro(0.05, 0.062, 0.29, (0, 0, -0.145), manga, seg=10, liso=True)
+        else:
+            a.cilindro(0.064, 0.07, 0.15, (0, 0, -0.07), manga, seg=10, liso=True)
+            a.cilindro(0.048, 0.054, 0.16, (0, 0, -0.21), PELE, seg=10, liso=True)
+        a.esfera(0.049, (0, 0, -0.29), pele_braco, seg=10, aneis=6)
+        braco = a.objeto(tronco, (s * 0.255, 0, 0.53))
+        f = Malha("antebraco_" + lado)
+        f.cilindro(0.04, 0.048, 0.26, (0, 0, -0.13), pele_braco, seg=10, liso=True)
+        f.caixa((0.055, 0.085, 0.1), (0, 0.005, -0.31), PELE, bisel=0.02)
+        f.objeto(braco, (0, 0, -0.29))
 
 
 @asset("personagens", "Protagonista. Roupa_Camisa/Roupa_Calca trocam o visual (reduz a Ficha).")

@@ -45,6 +45,7 @@ var rng := RandomNumberGenerator.new()
 var fusao := Fusao.new()
 var _mats := {}
 var jogo
+var mat_agua: StandardMaterial3D
 
 
 static func nodo_x(i: int) -> float:
@@ -219,12 +220,21 @@ func tem_visao(a: Vector2, b: Vector2) -> bool:
 
 
 # ------------------------------------------------------------------ montagem
+## Tipo de superficie de cada cor de chao (para a textura de detalhe)
+const TIPO_CHAO := {
+	"#6f914a": "grama", "#a19d6c": "grama", "#e8d3a0": "areia", "#d8c9a2": "areia",
+	"#a39d92": "concreto", "#8d8a84": "concreto", "#5a5a5e": "asfalto",
+}
+
+
 func material(cor: String) -> StandardMaterial3D:
 	if not _mats.has(cor):
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color(cor)
 		m.roughness = 0.95
 		m.metallic_specular = 0.15
+		if TIPO_CHAO.has(cor):
+			Visual.detalhar(m, TIPO_CHAO[cor])
 		_mats[cor] = m
 	return _mats[cor]
 
@@ -280,7 +290,9 @@ func construir(p_jogo) -> void:
 	ma.albedo_color = Color("#2c9db5")
 	ma.roughness = 0.15
 	ma.metallic = 0.2
+	Visual.detalhar(ma, "agua")
 	agua.material_override = ma
+	mat_agua = ma
 	agua.position = Vector3(BORDA + 46.0 + 400.0, 0.08, 0.0)
 	add_child(agua)
 

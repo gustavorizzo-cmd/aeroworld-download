@@ -116,7 +116,7 @@ func _coluna(t: Control) -> VBoxContainer:
 
 func _montar_inicio() -> void:
 	var vb := _coluna(inicio)
-	vb.add_child(_rotulo("VERSÃO 0.2 · PROTÓTIPO JOGÁVEL · GODOT", 15, COR_OURO))
+	vb.add_child(_rotulo("VERSÃO 0.3 · PROTÓTIPO JOGÁVEL · GODOT", 15, COR_OURO))
 	var tit := VBoxContainer.new()
 	tit.add_theme_constant_override("separation", -18)
 	tit.add_child(_titulo("PORTO", 92, COR_TEXTO, COR_BRASA))

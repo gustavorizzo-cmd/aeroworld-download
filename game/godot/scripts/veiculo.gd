@@ -43,6 +43,10 @@ var derrapando := false
 var queimado := false
 var ia_queimando := false
 var cd_tiro := 0.0
+var inclina := Vector2.ZERO  # (pitch, roll) suavizados: o carro "senta" na freada e deita na curva
+var _vf_antes := 0.0
+var lanternas: Array = []
+var fumaca_pneu: CPUParticles3D
 
 
 func _init(p_jogo, p_tipo: String, x: float, z: float, p_h: float, p_cor = null) -> void:
@@ -63,6 +67,7 @@ func _init(p_jogo, p_tipo: String, x: float, z: float, p_h: float, p_cor = null)
 	y = jogo.mapa.altura_chao(x, z)
 	if policia:
 		_preparar_sirenes()
+	_preparar_lanternas()
 	jogo.add_child(obj)
 	jogo.veiculos.append(self)
 	sincronizar()
@@ -107,6 +112,60 @@ func _preparar_sirenes() -> void:
 				mats.append(d)
 		sirenes.append(mats)
 	ligar_sirene(false, 0.0)
+
+
+func _preparar_lanternas() -> void:
+	var feitos := {}
+	for mi in malhas(obj, []):
+		if mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var m: Material = mi.get_surface_override_material(s)
+			if m == null:
+				m = mi.mesh.surface_get_material(s)
+			if m == null or m.resource_name != "Lanterna":
+				continue
+			if not feitos.has(m):
+				feitos[m] = m.duplicate()
+			mi.set_surface_override_material(s, feitos[m])
+	lanternas = feitos.values()
+
+
+func _fumaca_pneus() -> void:
+	fumaca_pneu = CPUParticles3D.new()
+	fumaca_pneu.amount = 40
+	fumaca_pneu.lifetime = 1.4
+	fumaca_pneu.emitting = false
+	fumaca_pneu.local_coords = false
+	fumaca_pneu.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	fumaca_pneu.emission_box_extents = Vector3(0.8, 0.05, 0.2)
+	fumaca_pneu.direction = Vector3.UP
+	fumaca_pneu.spread = 35.0
+	fumaca_pneu.initial_velocity_min = 0.6
+	fumaca_pneu.initial_velocity_max = 1.6
+	fumaca_pneu.gravity = Vector3(0, 0.4, 0)
+	fumaca_pneu.scale_amount_min = 0.7
+	fumaca_pneu.scale_amount_max = 1.6
+	var curva := Curve.new()
+	curva.add_point(Vector2(0, 0.4))
+	curva.add_point(Vector2(1, 1.6))
+	fumaca_pneu.scale_amount_curve = curva
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.85, 0.85, 0.85, 0.5))
+	grad.set_color(1, Color(0.85, 0.85, 0.85, 0.0))
+	fumaca_pneu.color_ramp = grad
+	var q := QuadMesh.new()
+	q.size = Vector2(0.9, 0.9)
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = Visual.textura_fumaca()
+	q.material = m
+	fumaca_pneu.mesh = q
+	obj.add_child(fumaca_pneu)
+	fumaca_pneu.position = Vector3(0, 0.15, t["meio"])
 
 
 func ligar_sirene(ligada: bool, tempo: float) -> void:
@@ -185,6 +244,11 @@ func atualizar(dt: float) -> void:
 
 	vel = U.frente(h) * vf + U.direita(h) * vr
 	pos += vel * dt
+	# inclinacao da carroceria: frente desce na freada, sobe na aceleracao; deita na curva
+	var acel_long := (vf - _vf_antes) / maxf(dt, 0.001)
+	_vf_antes = vf
+	var alvo_inc := Vector2(clampf(acel_long * 0.0045, -0.055, 0.045), clampf(vf * yaw * 0.0042, -0.075, 0.075))
+	inclina = inclina.lerp(alvo_inc, 1.0 - exp(-6.0 * dt))
 	v_f = vf
 	derrapando = absf(vr) > 4.0
 	giro -= vf / 0.36 * dt
@@ -193,7 +257,19 @@ func atualizar(dt: float) -> void:
 
 func sincronizar() -> void:
 	obj.position = Vector3(pos.x, y, pos.y)
-	obj.rotation.y = h
+	obj.rotation = Vector3(inclina.x, h, inclina.y)
+	# luz de freio: acende ao frear ou dar re
+	if not lanternas.is_empty():
+		var freando: bool = ctrl["freio"] > 0.05 and not queimado
+		for m in lanternas:
+			m.emission_energy_multiplier = 3.5 if freando else 0.8
+	# fumaca dos pneus so no carro do jogador (derrapagem ou freio de mao em velocidade)
+	if motorista == "jogador":
+		if fumaca_pneu == null:
+			_fumaca_pneus()
+		fumaca_pneu.emitting = (derrapando or (ctrl["freio_mao"] and absf(v_f) > 7.0)) and velocidade() > 5.0
+	elif fumaca_pneu != null:
+		fumaca_pneu.emitting = false
 	for i in rodas.size():
 		var roda: Node3D = rodas[i]
 		if roda:

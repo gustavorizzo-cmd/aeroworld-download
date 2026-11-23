@@ -18,6 +18,7 @@ class Ped:
 	var vel := 1.5
 	var fase := 0.0
 	var membros: Array = []
+	var anim: AnimHumano
 	var bloco = null
 	var s := 0.0
 	var dir := 1.0
@@ -116,8 +117,7 @@ func criar(p: Vector2 = Vector2.ZERO) -> Ped:
 	pd.icone.position.y = 2.4
 	pd.icone.visible = false
 	pd.obj.add_child(pd.icone)
-	for n in ["braco_esq", "braco_dir", "perna_esq", "perna_dir"]:
-		pd.membros.append(pd.obj.find_child(n, true, false))
+	pd.anim = AnimHumano.new(pd.obj)
 	pd.pos = p
 	pd.vel = randf_range(1.2, 1.7)
 	pd.fase = randf() * 6.0
@@ -338,14 +338,10 @@ func atualizar(dt: float) -> void:
 
 		if not pd.caido:
 			pd.y = jogo.mapa.altura_chao(pd.pos.x, pd.pos.y)
-		var amp := minf(1.0, vel / 6.0) * 0.9
-		pd.fase += vel * dt * 2.0
-		var s := sin(pd.fase) * amp
-		var giros := [-2.4 if pd.estado == "ligando" else s, -s, -s, s]
-		for i in pd.membros.size():
-			if pd.membros[i]:
-				pd.membros[i].rotation.x = giros[i]
-		pd.obj.position = Vector3(pd.pos.x, pd.y, pd.pos.y)
+		var bob := 0.0
+		if not pd.caido and pd.pos.distance_squared_to(pj) < 90.0 * 90.0:
+			bob = pd.anim.atualizar(dt, vel, {"ligando": pd.estado == "ligando"})
+		pd.obj.position = Vector3(pd.pos.x, pd.y + bob, pd.pos.y)
 		pd.obj.rotation.y = pd.h
 
 

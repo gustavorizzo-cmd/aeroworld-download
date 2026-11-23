@@ -42,7 +42,9 @@ func _mat(nome: String, cor: Color, sem_luz: bool = true) -> StandardMaterial3D:
 
 ## Coloca uma arma simples na mao direita do personagem.
 func preparar_modelo(jogador) -> void:
-	var braco: Node3D = jogador.membros[1]
+	var braco: Node3D = jogador.obj.find_child("antebraco_dir", true, false)
+	if braco == null:
+		braco = jogador.membros[1]
 	arma_mao = MeshInstance3D.new()
 	arma_mao.mesh = BoxMesh.new()
 	arma_mao.material_override = _mat("arma", Color("#23262b"), false)
@@ -57,7 +59,7 @@ func _atualizar_modelo() -> void:
 	arma_mao.visible = tam > 0.0
 	if tam > 0.0:
 		(arma_mao.mesh as BoxMesh).size = Vector3(0.07, tam, 0.11)
-		arma_mao.position = Vector3(0.0, -0.7 - tam * 0.5, -0.02)
+		arma_mao.position = Vector3(0.0, -0.3 - tam * 0.5, -0.02)
 
 
 # ------------------------------------------------------------------ inventario
@@ -355,6 +357,9 @@ func explodir(v) -> void:
 	jogo.audio.tocar("explosao")
 	jogo.pedestres.panico(v.pos, 45.0)
 	var jj = jogo.jogador
+	var dcam: float = jj.posicao().distance_to(v.pos)
+	if dcam < 40.0:
+		jogo.camera.tremer(1.0 - dcam / 40.0)
 	if v.motorista == "jogador":
 		jj.ferir(70.0)
 		jj.sair(true)
@@ -454,6 +459,7 @@ func _fumaca() -> CPUParticles3D:
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.albedo_texture = Visual.textura_fumaca()
 	q.material = m
 	f.mesh = q
 	return f

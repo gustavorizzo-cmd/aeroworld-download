@@ -36,6 +36,7 @@ static func impacto(jogo, v, n: Vector2, e: float) -> float:
 		v.dano(forca)
 		if v.motorista == "jogador":
 			jogo.audio.batida(forca)
+			jogo.camera.tremer(forca / 25.0)
 	return forca
 
 
@@ -116,6 +117,8 @@ static func _colisao_par(jogo, a, b) -> void:
 				if forca > 4.0:
 					a.dano(forca * 0.8)
 					b.dano(forca * 0.8)
+					if a.motorista == "jogador" or b.motorista == "jogador":
+						jogo.camera.tremer(forca / 25.0)
 					jogo.evento_batida(a, b, forca)
 			return
 

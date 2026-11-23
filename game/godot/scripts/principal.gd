@@ -75,37 +75,69 @@ func _ready() -> void:
 
 
 func _ambiente() -> void:
+	var adv := Visual.avancado()
 	var env := Environment.new()
 	var ceu := Sky.new()
 	var mat_ceu := ProceduralSkyMaterial.new()
-	mat_ceu.sky_top_color = Color("#8fbbe3")
-	mat_ceu.sky_horizon_color = Color("#d9e7f0")
-	mat_ceu.ground_horizon_color = Color("#d9e7f0")
-	mat_ceu.ground_bottom_color = Color("#8a8466")
+	mat_ceu.sky_top_color = Color("#6f9fd0")
+	mat_ceu.sky_horizon_color = Color("#d4e2ea")
+	mat_ceu.ground_horizon_color = Color("#d4e2ea")
+	mat_ceu.ground_bottom_color = Color("#6d6a55")
+	mat_ceu.sun_angle_max = 25.0
+	mat_ceu.sun_curve = 0.12
 	ceu.sky_material = mat_ceu
 	env.background_mode = Environment.BG_SKY
 	env.sky = ceu
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("#b4c3d3")
-	env.ambient_light_energy = 0.45
 	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	env.tonemap_exposure = 0.8
 	env.fog_enabled = true
-	env.fog_light_color = Color("#c9dbe8")
-	env.fog_density = 0.0018
+	env.fog_light_color = Color("#c9d9e4")
 	env.fog_sky_affect = 0.1
+	if adv:
+		# Forward+ (Vulkan): luz do ceu, sombreamento de contato, brilho, reflexos
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+		env.ambient_light_sky_contribution = 0.75
+		env.ambient_light_energy = 0.7
+		env.tonemap_mode = Environment.TONE_MAPPER_ACES
+		env.tonemap_exposure = 0.95
+		env.tonemap_white = 6.0
+		env.ssao_enabled = true
+		env.ssao_radius = 1.6
+		env.ssao_intensity = 2.2
+		env.ssao_detail = 0.6
+		env.ssr_enabled = true
+		env.ssr_max_steps = 48
+		env.glow_enabled = true
+		env.glow_intensity = 0.55
+		env.glow_bloom = 0.04
+		env.glow_hdr_threshold = 1.1
+		env.fog_density = 0.0014
+		env.adjustment_enabled = true
+		env.adjustment_contrast = 1.06
+		env.adjustment_saturation = 1.08
+	else:
+		# Compatibility (OpenGL): sem efeitos de tela, luz mais contida
+		env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.ambient_light_color = Color("#b4c3d3")
+		env.ambient_light_energy = 0.45
+		env.tonemap_mode = Environment.TONE_MAPPER_ACES
+		env.tonemap_exposure = 0.8
+		env.fog_density = 0.0018
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
 	sol = DirectionalLight3D.new()
-	sol.light_energy = 0.78
-	sol.light_color = Color("#fff0d6")
+	sol.light_energy = 1.15 if adv else 0.78
+	sol.light_color = Color("#ffe9cc")
 	sol.shadow_enabled = true
-	sol.directional_shadow_max_distance = 140.0
+	sol.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sol.directional_shadow_max_distance = 160.0
 	sol.shadow_bias = 0.04
+	# borda suave sem ruido: desfoque comum (a sombra de tamanho fisico gera pontilhado)
+	sol.shadow_blur = 1.6 if adv else 1.0
+	sol.shadow_normal_bias = 1.4
 	add_child(sol)
-	sol.look_at_from_position(Vector3(60, 110, 35), Vector3.ZERO, Vector3.UP)
+	# sol de fim de tarde: sombras mais longas
+	sol.look_at_from_position(Vector3(85, 80, 40), Vector3.ZERO, Vector3.UP)
 
 
 func _carregar() -> void:
@@ -254,7 +286,6 @@ func _hospital(dt: float) -> bool:
 	if cena_hospital <= 0.0:
 		return false
 	cena_hospital -= dt
-	jogador.obj.rotation.x = -PI / 2.0
 	if cena_hospital <= 0.0:
 		cena_hospital = 0.0
 		if jogador.veiculo != null:
@@ -263,7 +294,7 @@ func _hospital(dt: float) -> bool:
 		jogador.h = 0.0
 		jogador.vida = 100.0
 		jogador.caido = 0.0
-		jogador.obj.rotation.x = 0.0
+		jogador.queda = 0.0
 		policia.limpar()
 		salvar()
 	return true
@@ -427,6 +458,8 @@ func passo(dt: float) -> void:
 	else:
 		prompt_atual = ""
 	armas.atualizar(dt, entrada, not cena and ui_aberta == "")
+	if mapa.mat_agua:
+		mapa.mat_agua.uv1_offset += Vector3(dt * 0.012, 0.0, dt * 0.007)
 	if destino != null and jogador.posicao().distance_to(destino) < 8.0:
 		destino = null
 		hud.mensagem("Você chegou ao destino.", 2.0)
