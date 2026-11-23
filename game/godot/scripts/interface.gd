@@ -141,14 +141,23 @@ func _montar_inicio() -> void:
 	grade.columns = 2
 	grade.add_theme_constant_override("h_separation", 34)
 	grade.add_theme_constant_override("v_separation", 6)
-	for linha in [
+	var linhas := [
 		["W A S D / setas", "andar e dirigir"], ["E", "entrar, sair, roubar carro"],
 		["Shift", "correr a pé"], ["Espaço", "freio de mão"],
 		["Mouse", "girar a câmera"], ["M · H · Esc", "mapa · buzina · pausa"],
 		["Botão direito", "mirar (com arma)"], ["Botão esquerdo", "atirar / socar"],
 		["Q ou rodinha", "trocar de arma"], ["Tab", "celular"],
 		["Controle", "gatilhos aceleram, Y entra, LB mira, RB atira"], ["N", "liga/desliga o som"],
-	]:
+	]
+	if OS.has_feature("mobile") or "--toque" in OS.get_cmdline_user_args():
+		linhas = [
+			["Círculo à esquerda", "andar e dirigir (no fundo, corre)"], ["Arrastar à direita", "girar a câmera"],
+			["E", "entrar, sair, roubar, lojas"], ["FREIO", "freio de mão (no carro)"],
+			["MIRAR", "liga/desliga a mira"], ["ATIRAR", "atirar / socar"],
+			["ARMA", "trocar de arma"], ["CELULAR", "contatos, GPS, táxi"],
+			["MAPA · II", "mapa grande · pausa"], ["Voltar", "pausa / fecha o celular"],
+		]
+	for linha in linhas:
 		var l := _rotulo("%s   %s" % [linha[0], linha[1]], 16, COR_TEXTO)
 		grade.add_child(l)
 	painel.add_child(grade)

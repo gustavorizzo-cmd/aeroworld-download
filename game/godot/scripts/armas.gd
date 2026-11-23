@@ -15,6 +15,7 @@ var jogo
 var inventario := {"punho": 0}  # arma -> municao
 var atual := "punho"
 var mirando := false
+var mirar_toque := false  # no toque, Mirar liga e desliga
 var cd := 0.0
 var cd_crime := 0.0
 var tiros_policia := 0  # contador (testes)
@@ -92,6 +93,7 @@ func trocar(passo: int) -> void:
 
 
 func confiscar() -> void:
+	mirar_toque = false
 	inventario = {"punho": 0}
 	selecionar("punho")
 
@@ -106,7 +108,9 @@ func atualizar(dt: float, entrada, pode_agir: bool) -> void:
 	cd_crime -= dt
 	var jj = jogo.jogador
 	var a_pe: bool = jj.veiculo == null and jj.caido <= 0.0
-	mirando = pode_agir and a_pe and entrada.segurando("mirar")
+	if not a_pe:
+		mirar_toque = false
+	mirando = pode_agir and a_pe and (entrada.segurando("mirar") or mirar_toque)
 	if pode_agir and a_pe:
 		if entrada.apertou("arma_prox"):
 			trocar(1)
@@ -143,6 +147,10 @@ func _disparar() -> void:
 	var jj = jogo.jogador
 	var boca := Vector3(jj.pos.x, jj.y + 1.45, jj.pos.y) + Vector3(U.frente(jj.h).x, 0, U.frente(jj.h).y) * 0.8
 	var pular := origem.distance_to(boca) - 0.3
+	if jogo.toque:
+		var assist = _mira_assistida(origem, frente, t["alcance"] + pular)
+		if assist != null:
+			frente = assist
 	var acertou_alguem := false
 	for i in t["projeteis"]:
 		var disp: float = t["dispersao"] * (0.5 if mirando else 1.6)
@@ -160,6 +168,30 @@ func _disparar() -> void:
 	if cd_crime <= 0.0 and not acertou_alguem:
 		cd_crime = 5.0
 		jogo.crime("disparo", jj.pos, 1, {})
+
+
+## No toque: puxa o tiro para o alvo mais perto do centro da tela (ate ~20 graus).
+func _mira_assistida(origem: Vector3, frente: Vector3, alcance: float):
+	var melhor = null
+	var m_ang := 0.35
+	var jj = jogo.jogador
+	var alvos := []
+	for pd in jogo.pedestres.lista:
+		if not pd.caido:
+			alvos.append(Vector3(pd.pos.x, pd.y + 1.1, pd.pos.y))
+	for v in jogo.veiculos:
+		if v.policia and v.motorista == "ia" and not v.queimado:
+			alvos.append(Vector3(v.pos.x, v.y + 0.9, v.pos.y))
+	for a in alvos:
+		var d: Vector3 = a - origem
+		var dist := d.length()
+		if dist < 1.0 or dist > alcance:
+			continue
+		var ang := d.normalized().angle_to(frente)
+		if ang < m_ang and jogo.mapa.tem_visao(jj.pos, Vector2(a.x, a.z)):
+			m_ang = ang
+			melhor = d.normalized()
+	return melhor
 
 
 ## Raio 3D contra pedestres, carros, helicoptero, predios e chao.

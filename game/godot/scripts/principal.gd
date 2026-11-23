@@ -35,6 +35,8 @@ var marcador_destino: Node3D
 var mensagens: Array = []  # {de, texto, lida}
 var lojas_roubadas := {}  # id da loja -> tempo em que o caixa volta a ter dinheiro
 var estat := {"prisoes": 0, "mortes": 0}
+var toque := false  # tablet/celular
+var controles_toque: ControlesToque
 var sol: DirectionalLight3D
 var tempo := 0.0
 var dinheiro := 200.0
@@ -51,8 +53,10 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--teste"):
 			modo_teste = a.get_slice("=", 1) if a.contains("=") else "basico"
+	toque = OS.has_feature("mobile") or "--toque" in OS.get_cmdline_user_args()
 	_ambiente()
 	entrada = Entrada.new()
+	entrada.modo_toque = toque
 	add_child(entrada)
 	audio = AudioJogo.new()
 	add_child(audio)
@@ -178,6 +182,16 @@ func _carregar() -> void:
 	loja_ui = LojaUI.new(self)
 	add_child(loja_ui)
 	marcador_destino = missoes._criar_marcador(Color("#b07cff"))
+	if toque:
+		hud.layout_toque()
+		controles_toque = ControlesToque.new(self)
+		add_child(controles_toque)
+		# tablet: menos coisas na cidade e sem suavizacao de serrilhado, para rodar liso
+		pedestres.max_ped = 22
+		trafego.max_civis = 11
+		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
+		sol.directional_shadow_max_distance = 90.0
+		sol.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	if missoes.feitas == 0:
 		nova_mensagem("Rui", "Bem-vindo de volta a Porto Brasa. Tem trabalho pra você: vai até o marcador amarelo do lado da casa. Se precisar, me chama no celular (Tab).", false)
 
@@ -236,7 +250,7 @@ func fechar_ui() -> void:
 	ui_aberta = ""
 	entrada.apertadas.clear()
 	entrada.consumir_arraste()
-	if modo_teste == "" and not pausado:
+	if modo_teste == "" and not pausado and not toque:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -330,7 +344,7 @@ func _comecar() -> void:
 	interface.mostrar_pausa(false)
 	hud.raiz.visible = true
 	pausado = false
-	if modo_teste == "":
+	if modo_teste == "" and not toque:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -353,6 +367,14 @@ func _alternar_som() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and pronto and modo_teste == "":
 		_pausar()
+	# botao "voltar" do Android: fecha o celular/loja ou pausa
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and pronto:
+		if ui_aberta == "celular":
+			celular.voltar()
+		elif ui_aberta == "loja":
+			loja_ui.fechar()
+		elif not pausado:
+			_pausar()
 
 
 # ------------------------------------------------------------------ servicos
@@ -491,6 +513,18 @@ func _process(delta: float) -> void:
 	if modo_teste != "":
 		return
 	var dt := minf(delta, 0.05)
+	atalhos()
+	if not pausado:
+		passo(dt)
+	elif interface.inicio.visible:
+		var t := Time.get_ticks_msec() / 1000.0
+		camera.position = Vector3(cos(t * 0.05) * 160.0, 70.0, sin(t * 0.05) * 160.0)
+		camera.look_at(Vector3.ZERO)
+	entrada.fim_do_quadro()
+
+
+## Teclas e botoes de interface (pausa, celular, mapa, som). Tambem usado pelos testes.
+func atalhos() -> void:
 	if entrada.apertou("pausa"):
 		if ui_aberta == "celular":
 			celular.voltar()
@@ -508,10 +542,3 @@ func _process(delta: float) -> void:
 		hud.alternar_mapa()
 	if entrada.apertou("som"):
 		_alternar_som()
-	if not pausado:
-		passo(dt)
-	elif interface.inicio.visible:
-		var t := Time.get_ticks_msec() / 1000.0
-		camera.position = Vector3(cos(t * 0.05) * 160.0, 70.0, sin(t * 0.05) * 160.0)
-		camera.look_at(Vector3.ZERO)
-	entrada.fim_do_quadro()

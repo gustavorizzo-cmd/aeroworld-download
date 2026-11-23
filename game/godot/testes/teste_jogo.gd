@@ -32,6 +32,8 @@ func rodar(p_jogo) -> void:
 			await _interacoes()
 		"visual":
 			await _visual()
+		"toque":
+			await _toque()
 		"placa":
 			var a: Vector2 = jogo.mapa.poi["arsenal"]["p"]
 			jogo.jogador.pos = a + Vector2(-4, -6)
@@ -569,3 +571,95 @@ func _camera_lado(jj, d: float) -> void:
 	var p := Vector3(jj.pos.x, jj.y + 1.1, jj.pos.y)
 	jogo.camera.global_position = p + Vector3(lado.x, 0.0, lado.y) * d + Vector3(0, 0.3, 0)
 	jogo.camera.look_at(p, Vector3.UP)
+
+
+## Controles de toque (rodar com -- --teste=toque --toque). Simula dedos na tela.
+func _toque() -> void:
+	var ct = jogo.controles_toque
+	checar(ct != null, "controles de toque criados")
+	jogo.pausado = false  # os controles so funcionam com o jogo rodando (o tempo segue no simular)
+	jogo.policia.carencia = 9999.0
+	await jogo.get_tree().process_frame
+	var jj = jogo.jogador
+	var meu = null
+	for v in jogo.veiculos:
+		if v.do_jogador:
+			meu = v
+	jj.pos = meu.pos + Vector2(-1.5, 1.8)
+	sim(0.2)
+	await foto("t1_a_pe")
+	await _tocar(_botao(ct, "e"))
+	sim(0.1)
+	checar(jj.veiculo == meu, "botão E entra no carro")
+	# joystick para cima por 2 s
+	await _dedo(1, ct.joy_centro, true)
+	await _arrastar(1, ct.joy_centro + Vector2(0, -80))
+	sim(2.0)
+	checar(meu.velocidade() * 3.6 > 30.0, "joystick acelera o carro (%d km/h)" % int(meu.velocidade() * 3.6))
+	await foto("t2_carro")
+	await _dedo(1, ct.joy_centro, false)
+	jogo.entrada.segurar("tras", true)
+	sim(2.0)
+	jogo.entrada.segurar("tras", false)
+	meu.vel = Vector2.ZERO
+	sim(0.3)
+	await _tocar(_botao(ct, "e"))
+	sim(0.2)
+	checar(jj.veiculo == null, "botão E sai do carro")
+	# arma: Mirar liga, Atirar gasta bala
+	jogo.armas.dar("pistola", 36)
+	await _tocar(_botao(ct, "mirar"))
+	sim(0.3)
+	checar(jogo.armas.mirando, "botão Mirar liga a mira")
+	await foto("t3_mirando")
+	var balas: int = jogo.armas.municao()
+	await _tocar(_botao(ct, "atirar"))
+	sim(0.1)
+	checar(jogo.armas.municao() == balas - 1, "botão Atirar dispara")
+	await _tocar(_botao(ct, "mirar"))
+	sim(0.1)
+	checar(not jogo.armas.mirando, "botão Mirar desliga a mira")
+	# camera: arrastar no lado direito
+	var yaw0: float = jogo.camera.yaw
+	var tam: Vector2 = ct.raiz.get_viewport_rect().size
+	await _dedo(2, Vector2(tam.x * 0.6, tam.y * 0.35), true)
+	await _arrastar(2, Vector2(tam.x * 0.6 + 120, tam.y * 0.35))
+	sim(0.1)
+	await _dedo(2, Vector2(tam.x * 0.6 + 120, tam.y * 0.35), false)
+	checar(absf(jogo.camera.yaw - yaw0) > 0.1, "arrastar o dedo gira a câmera")
+	# celular
+	await _tocar(_botao(ct, "celular"))
+	jogo.atalhos()
+	checar(jogo.ui_aberta == "celular", "botão Celular abre o celular")
+	await foto("t4_celular")
+	jogo.celular.fechar()
+
+
+func _botao(ct, nome: String) -> Vector2:
+	for b in ct.botoes:
+		if b["nome"] == nome:
+			return b["pos"]
+	return Vector2.ZERO
+
+
+func _dedo(indice: int, p: Vector2, apertado: bool) -> void:
+	var e := InputEventScreenTouch.new()
+	e.index = indice
+	e.position = p
+	e.pressed = apertado
+	Input.parse_input_event(e)
+	await jogo.get_tree().process_frame
+
+
+func _arrastar(indice: int, p: Vector2) -> void:
+	var e := InputEventScreenDrag.new()
+	e.index = indice
+	e.position = p
+	e.relative = Vector2(120, 0) if indice == 2 else Vector2.ZERO
+	Input.parse_input_event(e)
+	await jogo.get_tree().process_frame
+
+
+func _tocar(p: Vector2) -> void:
+	await _dedo(0, p, true)
+	await _dedo(0, p, false)

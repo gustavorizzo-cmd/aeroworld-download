@@ -46,8 +46,8 @@ Tudo da 0.2 continua:
    leva alguns segundos.
 3. Aperte **F5** (ou o botão ▶ no canto superior direito).
 
-O projeto usa o renderizador **Compatibility** (OpenGL), que roda em quase
-qualquer PC e também permite exportar para navegador e celular depois.
+No PC o projeto usa **Forward+** (Vulkan) e volta para **Compatibility**
+(OpenGL) se precisar. No celular/tablet usa Compatibility.
 
 ## Controles
 
@@ -63,6 +63,21 @@ qualquer PC e também permite exportar para navegador e celular depois.
 | Celular | Tab | direcional ↑ |
 | Mapa · buzina · pausa · som | M · H · Esc · N | Back · L3 · Start |
 
+### Tablet e celular Android (toque)
+
+| Ação | Toque |
+|---|---|
+| Andar / dirigir | círculo no canto inferior esquerdo (empurrar até a borda = correr) |
+| Câmera | arrastar o dedo na metade direita da tela |
+| Entrar, sair, roubar, lojas | botão **E** |
+| Mirar (liga/desliga) · atirar | **MIRAR** · **ATIRAR** (com mira automática leve) |
+| Freio de mão · buzina | **FREIO** · **BUZINA** (aparecem no carro) |
+| Trocar arma · celular | **ARMA** · **CELULAR** |
+| Mapa · pausa | **MAPA** · **II** (o botão Voltar do Android também pausa) |
+
+No tablet o jogo usa menos pedestres e carros e sombras mais curtas para ficar
+fluido. Para testar os controles de toque no PC: `godot --path game/godot -- --toque`.
+
 O progresso (dinheiro, missões, roupa) fica salvo em
 `user://porto_brasa.cfg`.
 
@@ -72,10 +87,18 @@ O progresso (dinheiro, missões, roupa) fica salvo em
 2. **Projeto → Exportar…**: o preset **Windows** já está configurado e gera
    `game/builds/PortoBrasa.exe`, um arquivo único com tudo embutido.
 
+## Gerar o APK para Android
+
+1. Instale os modelos de exportação (como acima), o **JDK 17** e o **Android SDK**
+   e informe os caminhos em **Editor → Configurações do Editor → Exportar → Android**.
+2. Crie uma keystore de release e preencha em **Projeto → Exportar… → Android**
+   (a senha fica em `.godot/export_credentials.cfg`, fora do Git).
+3. Exporte: gera `game/builds/PortoBrasa.apk` (arm64, sem Gradle).
+
 ## Estrutura
 
 ```
-project.godot          configuração (janela 1280x720, Compatibility, MSAA)
+project.godot          configuração (janela 1280x720, Forward+, MSAA; celular em Compatibility)
 cenas/principal.tscn   cena principal: só um Node3D com principal.gd
 modelos/*.glb          os 23 modelos de ../assets/modelos
 scripts/
@@ -99,6 +122,7 @@ scripts/
   entrada.gd           teclado, mouse e controle
   animacao.gd          animação procedural do corpo (joelhos, cotovelos, tronco)
   visual.gd            texturas geradas, verniz, vidros, fumaça
+  toque.gd             joystick e botões de toque (tablet/celular)
 testes/teste_jogo.gd   testes automáticos
 ```
 
@@ -114,6 +138,7 @@ godot --headless --path game/godot -- --teste=basico       # missões, oficina, 
 godot --headless --path game/godot -- --teste=perseguicao  # 4 estrelas, helicóptero, bloqueio, pregos
 godot --headless --path game/godot -- --teste=interacoes   # celular, táxi, Arsenal, tiros, hospital, assalto
 godot --headless --path game/godot -- --teste=renascer     # sem prisão em ciclo ao renascer
+godot --headless --path game/godot -- --teste=toque --toque # joystick e botões de toque
 PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=fotos  # tudo + capturas de tela
 PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=visual # fotos da animação, carro e ruas
 ```

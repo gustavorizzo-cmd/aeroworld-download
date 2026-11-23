@@ -32,6 +32,8 @@ const MOUSE := {
 var apertadas := {}
 var forcadas := {}  # usado pelos testes automaticos
 var arraste := Vector2.ZERO
+var toque_eixo := Vector2.ZERO  # joystick de toque (x = direita, y = para baixo na tela)
+var modo_toque := false  # tablet/celular: sem atalhos de mouse (o toque vira clique e atiraria)
 
 
 func _ready() -> void:
@@ -44,6 +46,10 @@ func _ready() -> void:
 			e.physical_keycode = k
 			InputMap.action_add_event(acao, e)
 	for acao in MOUSE:
+		if modo_toque:
+			if not InputMap.has_action(acao):
+				InputMap.add_action(acao, 0.2)
+			continue
 		if not InputMap.has_action(acao):
 			InputMap.add_action(acao, 0.2)
 		for b in MOUSE[acao]:
@@ -84,6 +90,8 @@ func _botao(acao: String, botao: JoyButton) -> void:
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
+		if modo_toque:
+			return
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
 			arraste += event.relative
 		return
@@ -99,6 +107,7 @@ func forca(acao: String) -> float:
 ## x = direita, y = frente (-1..1)
 func eixos() -> Vector2:
 	var v := Vector2(forca("direita") - forca("esquerda"), forca("frente") - forca("tras"))
+	v += Vector2(toque_eixo.x, -toque_eixo.y)
 	return v.limit_length(1.0) if v.length() > 1.0 else v
 
 
@@ -107,6 +116,8 @@ func apertou(acao: String) -> bool:
 
 
 func segurando(acao: String) -> bool:
+	if acao == "correr" and toque_eixo.length() > 0.95:
+		return true
 	return forca(acao) > 0.5
 
 

@@ -60,6 +60,8 @@ var arma_painel: PanelContainer
 var arma_lbl: Label
 var mira_ctl: Control
 var flash: ColorRect
+var barras_fundo: Array = []
+var largura_barra := 124.0
 
 
 func _init(p_jogo) -> void:
@@ -199,6 +201,7 @@ func _montar() -> void:
 		barra.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		fundo_b.add_child(barra)
 		raiz.add_child(fundo_b)
+		barras_fundo.append(fundo_b)
 		if i == 0:
 			barra_vida = barra
 		else:
@@ -522,8 +525,8 @@ func atualizar(dt: float) -> void:
 	else:
 		velo.visible = false
 
-	barra_vida.size.x = 124.0 * jj.vida / 100.0
-	barra_colete.size.x = 124.0 * jj.colete / 100.0
+	barra_vida.size.x = largura_barra * jj.vida / 100.0
+	barra_colete.size.x = largura_barra * jj.colete / 100.0
 	var a_pe: bool = jj.veiculo == null
 	var armas = jogo.armas
 	arma_painel.visible = a_pe
@@ -651,6 +654,29 @@ func _sobrepor(ctl: Control, conv: Callable, s: float, raio_px: float) -> void:
 	var contorno := seta.duplicate()
 	contorno.append(seta[0])
 	ctl.draw_polyline(contorno, Color.WHITE, 2.0, true)
+
+
+## Layout para tablet: minimapa sobe para baixo do objetivo (o joystick fica no canto
+## inferior esquerdo) e velocimetro/arma sobem acima dos botoes.
+func layout_toque() -> void:
+	largura_barra = 104.0
+	mini.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	mini.offset_left = 14
+	mini.offset_right = 14 + 210
+	mini.offset_top = 104
+	mini.offset_bottom = 104 + 150
+	for i in barras_fundo.size():
+		var f: ColorRect = barras_fundo[i]
+		f.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		f.offset_left = 14 + i * 106
+		f.offset_right = 14 + i * 106 + 104
+		f.offset_top = 259
+		f.offset_bottom = 266
+	for p in [velo, arma_painel]:
+		p.offset_top = -250
+		p.offset_bottom = -250
+	distrito_lbl.offset_left = 260
+	distrito_lbl.offset_right = 260
 
 
 func _desenhar_mini() -> void:
