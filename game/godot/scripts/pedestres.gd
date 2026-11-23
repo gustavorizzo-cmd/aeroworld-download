@@ -36,6 +36,7 @@ class Ped:
 var jogo
 var lista: Array = []
 var max_ped := 34
+var dist_anim := 90.0  # alem disso os pedestres nao sao animados
 var timer := 0.0
 var _tex_icone: ImageTexture
 var _mats := {}
@@ -339,7 +340,7 @@ func atualizar(dt: float) -> void:
 		if not pd.caido:
 			pd.y = jogo.mapa.altura_chao(pd.pos.x, pd.pos.y)
 		var bob := 0.0
-		if not pd.caido and pd.pos.distance_squared_to(pj) < 90.0 * 90.0:
+		if not pd.caido and pd.pos.distance_squared_to(pj) < dist_anim * dist_anim:
 			bob = pd.anim.atualizar(dt, vel, {"ligando": pd.estado == "ligando"})
 		pd.obj.position = Vector3(pd.pos.x, pd.y + bob, pd.pos.y)
 		pd.obj.rotation.y = pd.h

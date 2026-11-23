@@ -75,8 +75,9 @@ No PC o projeto usa **Forward+** (Vulkan) e volta para **Compatibility**
 | Trocar arma · celular | **ARMA** · **CELULAR** |
 | Mapa · pausa | **MAPA** · **II** (o botão Voltar do Android também pausa) |
 
-No tablet o jogo usa menos pedestres e carros e sombras mais curtas para ficar
-fluido. Para testar os controles de toque no PC: `godot --path game/godot -- --toque`.
+**Gráficos (menu de pausa):** Leve, Médio ou Alto. O tablet começa no **Leve**
+(resolução 3D a 70%, sem sombras, neblina mais perto, menos pessoas e carros);
+o PC começa no Alto. A escolha fica salva. Para medir: `--teste=desempenho` (com janela). Para testar os controles de toque no PC: `godot --path game/godot -- --toque`.
 
 O progresso (dinheiro, missões, roupa) fica salvo em
 `user://porto_brasa.cfg`.
@@ -138,7 +139,7 @@ godot --headless --path game/godot -- --teste=basico       # missões, oficina, 
 godot --headless --path game/godot -- --teste=perseguicao  # 4 estrelas, helicóptero, bloqueio, pregos
 godot --headless --path game/godot -- --teste=interacoes   # celular, táxi, Arsenal, tiros, hospital, assalto
 godot --headless --path game/godot -- --teste=renascer     # sem prisão em ciclo ao renascer
-godot --headless --path game/godot -- --teste=toque --toque # joystick e botões de toque
+godot --path game/godot -- --teste=toque --toque            # joystick, botões e gráficos (com janela)
 PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=fotos  # tudo + capturas de tela
 PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=visual # fotos da animação, carro e ruas
 ```

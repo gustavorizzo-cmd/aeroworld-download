@@ -6,6 +6,7 @@ signal jogar
 signal continuar
 signal recomecar
 signal alternar_som
+signal alternar_graficos
 signal sair
 
 const COR_NOITE := Color("#10161d")
@@ -20,6 +21,7 @@ var carga_lbl: Label
 var carga_fill: ColorRect
 var botao_jogar: Button
 var botao_som: Button
+var botao_graficos: Button
 var fonte_titulo: SystemFont
 
 
@@ -190,11 +192,13 @@ func _montar_pausa() -> void:
 	b1.pressed.connect(func(): continuar.emit())
 	botao_som = _botao("Som: ligado", false)
 	botao_som.pressed.connect(func(): alternar_som.emit())
+	botao_graficos = _botao("Gráficos: Alto", false)
+	botao_graficos.pressed.connect(func(): alternar_graficos.emit())
 	var b3 := _botao("Recomeçar missões", false)
 	b3.pressed.connect(func(): recomecar.emit())
 	var b4 := _botao("Sair do jogo", false)
 	b4.pressed.connect(func(): sair.emit())
-	for b in [b1, botao_som, b3, b4]:
+	for b in [b1, botao_som, botao_graficos, b3, b4]:
 		acoes.add_child(b)
 	vb.add_child(acoes)
 	pausa.set_meta("primeiro", b1)

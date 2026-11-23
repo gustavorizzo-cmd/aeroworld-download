@@ -6,6 +6,9 @@ extends RefCounted
 static var _tex := {}
 
 
+static var sem_relevo := false  # tablet: pula os mapas de relevo
+
+
 static func avancado() -> bool:
 	return RenderingServer.get_current_rendering_method() != "gl_compatibility"
 
@@ -115,6 +118,9 @@ static func detalhar(m: BaseMaterial3D, tipo: String) -> void:
 			m.normal_enabled = true
 			m.normal_texture = ruido("metal_n", 0.4, 2, true, 1.2)
 			m.normal_scale = 0.25
+	if sem_relevo:
+		m.normal_enabled = false
+		m.normal_texture = null
 
 
 ## Ajusta os materiais importados do Blender pelo nome.

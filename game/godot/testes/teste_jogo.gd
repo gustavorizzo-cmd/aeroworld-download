@@ -34,6 +34,8 @@ func rodar(p_jogo) -> void:
 			await _visual()
 		"toque":
 			await _toque()
+		"desempenho":
+			await _desempenho()
 		"placa":
 			var a: Vector2 = jogo.mapa.poi["arsenal"]["p"]
 			jogo.jogador.pos = a + Vector2(-4, -6)
@@ -573,10 +575,35 @@ func _camera_lado(jj, d: float) -> void:
 	jogo.camera.look_at(p, Vector3.UP)
 
 
+## Mede quadros por segundo em cada nivel de grafico (rodar com janela, nao headless).
+func _desempenho() -> void:
+	jogo.pausado = false
+	jogo.policia.carencia = 9999.0
+	var jj = jogo.jogador
+	jj.pos = Vector2(10, -60)  # centro, rua movimentada
+	for q in [2, 1, 0]:
+		jogo.aplicar_qualidade(q)
+		for i in 30:
+			await jogo.get_tree().process_frame
+		var t0 := Time.get_ticks_usec()
+		var n := 0
+		while Time.get_ticks_usec() - t0 < 4000000:
+			jogo.camera.rotation.y += 0.01
+			await jogo.get_tree().process_frame
+			n += 1
+		var fps := n / ((Time.get_ticks_usec() - t0) / 1000000.0)
+		print("  qualidade %s: %.1f quadros/s" % [jogo.NOMES_QUALIDADE[q], fps])
+	checar(true, "medição concluída")
+
+
 ## Controles de toque (rodar com -- --teste=toque --toque). Simula dedos na tela.
 func _toque() -> void:
 	var ct = jogo.controles_toque
 	checar(ct != null, "controles de toque criados")
+	checar(jogo.qualidade == 0 and not jogo.sol.shadow_enabled and jogo.pedestres.max_ped == 12, "tablet começa nos gráficos Leve")
+	jogo.interface.alternar_graficos.emit()
+	checar(jogo.qualidade == 1 and jogo.sol.shadow_enabled and jogo.interface.botao_graficos.text == "Gráficos: Médio", "menu troca para gráficos Médio")
+	jogo.aplicar_qualidade(0)
 	jogo.pausado = false  # os controles so funcionam com o jogo rodando (o tempo segue no simular)
 	jogo.policia.carencia = 9999.0
 	await jogo.get_tree().process_frame

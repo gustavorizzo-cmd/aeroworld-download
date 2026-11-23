@@ -37,6 +37,9 @@ var lojas_roubadas := {}  # id da loja -> tempo em que o caixa volta a ter dinhe
 var estat := {"prisoes": 0, "mortes": 0}
 var toque := false  # tablet/celular
 var controles_toque: ControlesToque
+var qualidade := 2  # 0 leve, 1 medio, 2 alto
+var ambiente: Environment
+const NOMES_QUALIDADE := ["Leve", "Médio", "Alto"]
 var sol: DirectionalLight3D
 var tempo := 0.0
 var dinheiro := 200.0
@@ -54,6 +57,7 @@ func _ready() -> void:
 		if a.begins_with("--teste"):
 			modo_teste = a.get_slice("=", 1) if a.contains("=") else "basico"
 	toque = OS.has_feature("mobile") or "--toque" in OS.get_cmdline_user_args()
+	Visual.sem_relevo = toque  # tablet: sem mapas de relevo (mais leve na GPU)
 	_ambiente()
 	entrada = Entrada.new()
 	entrada.modo_toque = toque
@@ -74,6 +78,7 @@ func _ready() -> void:
 		hud.mensagem("Missões reiniciadas.", 2.0)
 		_comecar())
 	interface.alternar_som.connect(_alternar_som)
+	interface.alternar_graficos.connect(func(): aplicar_qualidade((qualidade + 1) % 3); salvar())
 	interface.sair.connect(func(): get_tree().quit())
 	await _carregar()
 
@@ -126,6 +131,7 @@ func _ambiente() -> void:
 		env.tonemap_mode = Environment.TONE_MAPPER_ACES
 		env.tonemap_exposure = 0.8
 		env.fog_density = 0.0018
+	ambiente = env
 	var we := WorldEnvironment.new()
 	we.environment = env
 	add_child(we)
@@ -186,12 +192,9 @@ func _carregar() -> void:
 		hud.layout_toque()
 		controles_toque = ControlesToque.new(self)
 		add_child(controles_toque)
-		# tablet: menos coisas na cidade e sem suavizacao de serrilhado, para rodar liso
-		pedestres.max_ped = 22
-		trafego.max_civis = 11
-		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
-		sol.directional_shadow_max_distance = 90.0
-		sol.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	# tablet comeca no Leve; o jogador pode trocar no menu de pausa
+	var q_padrao := 0 if toque else 2
+	aplicar_qualidade(q_padrao if modo_teste != "" else salvo.get_value("jogo", "qualidade", q_padrao))
 	if missoes.feitas == 0:
 		nova_mensagem("Rui", "Bem-vindo de volta a Porto Brasa. Tem trabalho pra você: vai até o marcador amarelo do lado da casa. Se precisar, me chama no celular (Tab).", false)
 
@@ -228,6 +231,7 @@ func salvar() -> void:
 	c.set_value("jogo", "missoes", missoes.feitas)
 	c.set_value("jogo", "armas", armas.inventario)
 	c.set_value("jogo", "colete", jogador.colete)
+	c.set_value("jogo", "qualidade", qualidade)
 	c.save(ARQUIVO_SALVO)
 
 
@@ -358,6 +362,48 @@ func _pausar() -> void:
 	pausado = true
 	interface.mostrar_pausa(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+## Qualidade grafica: Leve (tablet), Medio, Alto (PC). Muda resolucao 3D, sombras,
+## distancia de visao, quantidade de pessoas/carros e ate onde elas sao animadas.
+func aplicar_qualidade(q: int) -> void:
+	qualidade = clampi(q, 0, 2)
+	var vp := get_viewport()
+	var adv := Visual.avancado()
+	match qualidade:
+		0:
+			vp.scaling_3d_scale = 0.7
+			vp.msaa_3d = Viewport.MSAA_DISABLED
+			sol.shadow_enabled = false
+			camera.far = 300.0
+			ambiente.fog_density = 0.005
+			pedestres.max_ped = 12
+			pedestres.dist_anim = 40.0
+			trafego.max_civis = 7
+		1:
+			vp.scaling_3d_scale = 0.85
+			vp.msaa_3d = Viewport.MSAA_DISABLED
+			sol.shadow_enabled = true
+			sol.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+			sol.directional_shadow_max_distance = 70.0
+			camera.far = 450.0
+			ambiente.fog_density = 0.0032
+			pedestres.max_ped = 22
+			pedestres.dist_anim = 60.0
+			trafego.max_civis = 11
+		_:
+			vp.scaling_3d_scale = 1.0
+			vp.msaa_3d = Viewport.MSAA_2X
+			sol.shadow_enabled = true
+			sol.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			sol.directional_shadow_max_distance = 160.0
+			camera.far = 4000.0
+			ambiente.fog_density = 0.0014 if adv else 0.0018
+			pedestres.max_ped = 34
+			pedestres.dist_anim = 90.0
+			trafego.max_civis = 16
+	if interface.botao_graficos:
+		interface.botao_graficos.text = "Gráficos: " + NOMES_QUALIDADE[qualidade]
 
 
 func _alternar_som() -> void:
