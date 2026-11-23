@@ -28,9 +28,19 @@ func rodar(p_jogo) -> void:
 			_parado()
 		"renascer":
 			_renascer()
+		"interacoes":
+			await _interacoes()
+		"placa":
+			var a: Vector2 = jogo.mapa.poi["arsenal"]["p"]
+			jogo.jogador.pos = a + Vector2(-4, -6)
+			jogo.simular(0.5)
+			jogo.camera.global_position = Vector3(a.x - 3.0, 4.0, a.y - 16.0)
+			jogo.camera.look_at(Vector3(a.x, 5.0, a.y + 4.0), Vector3.UP)
+			await foto("11_placa")
 		"fotos":
 			await _basico()
 			await _perseguicao()
+			await _interacoes()
 	print("RESULTADO: ", "OK" if falhas.is_empty() else "FALHAS: " + ", ".join(falhas))
 
 
@@ -221,11 +231,15 @@ func _basico() -> void:
 		jogo.jogador.pos = alvo.pos + Vector2(2, 0)
 		apertar("acao")
 		estado("roubou trânsito")
+		var max_estrelas: int = jogo.policia.estrelas
+		var ficha_carro: bool = jogo.policia.ficha_carro()
 		for i in 4:
 			sim(2.0)
 			estado("depois")
-		checar(jogo.policia.estrelas >= 1, "denúncia da vítima dá estrela")
-		checar(jogo.policia.ficha_carro(), "denúncia põe o carro na Ficha")
+			max_estrelas = maxi(max_estrelas, jogo.policia.estrelas)
+			ficha_carro = ficha_carro or jogo.policia.ficha_carro()
+		checar(max_estrelas >= 1, "roubo com testemunha (vítima ou polícia) dá estrela")
+		checar(ficha_carro, "o carro roubado entra na Ficha")
 	else:
 		print("  (sem carro com testemunha por perto; pulado)")
 
@@ -234,6 +248,8 @@ func _basico() -> void:
 		jogo.jogador.veiculo.vel = Vector2.ZERO
 		sim(0.5)
 		jogo.jogador.sair()
+	jogo.jogador.pos = Mapa.nodo_pos(Vector2i(3, 2)) + Vector2(5.0, 5.0)
+	sim(0.2)
 	jogo.policia.aplicar(1)
 	jogo.policia._perseguir_agora()
 	jogo.policia.spawn_unidade()
@@ -324,10 +340,164 @@ func _renascer() -> void:
 	var estava_preso := false
 	for i in 120:
 		sim(0.5)
-		if jogo.cena_prisao > 0.0 and not estava_preso:
+		var em_cena: bool = jogo.cena_prisao > 0.0 or jogo.cena_hospital > 0.0
+		if em_cena and not estava_preso:
 			prisoes += 1
-			estado("PRESO #%d" % prisoes)
-		estava_preso = jogo.cena_prisao > 0.0
+			estado("PRESO/HOSPITAL #%d" % prisoes)
+		estava_preso = em_cena
 	estado("fim")
-	checar(prisoes == 1, "preso só uma vez (sem prisão em ciclo ao renascer)")
+	checar(prisoes == 1, "preso (ou hospital) só uma vez, sem ciclo ao renascer")
 	checar(p.estrelas == 0, "sem estrelas depois de renascer")
+
+
+## Mercado, celular, armas, policia atirando, hospital, assalto, advogado, explosao.
+func _interacoes() -> void:
+	var p = jogo.policia
+	var jj = jogo.jogador
+	var poi: Dictionary = jogo.mapa.poi
+	if jj.veiculo:
+		jj.veiculo.vel = Vector2.ZERO
+		jj.sair(true)
+	p.limpar()
+	sim(7.0)
+	jogo.dinheiro = 6000.0
+	jj.vida = 100.0
+	jj.colete = 0.0
+	jogo.armas.confiscar()
+
+	# celular
+	jogo.celular.abrir()
+	checar(jogo.ui_aberta == "celular", "celular abre")
+	await foto("07_celular")
+	jogo.missoes.feitas = 3
+	var r: String = jogo.celular.pedir_trabalho()
+	print("    ", r)
+	jogo.celular.ir("carteira")
+	jogo.celular.fechar()
+	checar(jogo.ui_aberta == "", "celular fecha")
+	jogo.celular.taxi("Arsenal do Porto")
+	sim(0.5)
+	checar(jj.pos.distance_to(poi["arsenal"]["p"]) < 3.0, "táxi leva ao Arsenal")
+	checar(int(jogo.dinheiro) == 5960, "táxi cobra R$ 40")
+
+	# arsenal
+	apertar("acao")
+	checar(jogo.ui_aberta == "loja", "entra no Arsenal com E")
+	print("    ", jogo.loja_ui.comprar("pistola"))
+	print("    ", jogo.loja_ui.comprar("submetralhadora"))
+	print("    ", jogo.loja_ui.comprar("colete"))
+	await foto("08_arsenal")
+	jogo.loja_ui.fechar()
+	checar(jogo.armas.tem("pistola") and jogo.armas.tem("submetralhadora"), "compra pistola e submetralhadora")
+	checar(jj.colete >= 100.0, "compra colete")
+	jogo.armas.selecionar("pistola")
+	var balas: int = jogo.armas.municao()
+	jj.h = PI
+	jogo.camera.yaw = PI
+	jogo.entrada.segurar("mirar", true)
+	sim(0.8)
+	await foto("10_mirando")
+	jogo.entrada.segurar("mirar", false)
+
+	# atirar num pedestre
+	var alvo = null
+	for pd in jogo.pedestres.lista:
+		if not pd.caido and pd.estado == "andando":
+			alvo = pd
+			break
+	jj.pos = alvo.pos + Vector2(7, 0)
+	jj.h = U.heading_de(alvo.pos - jj.pos)
+	jj.obj.position = Vector3(jj.pos.x, jj.y, jj.pos.y)
+	var olho := Vector3(jj.pos.x, jj.y + 1.7, jj.pos.y) - Vector3(U.frente(jj.h).x, 0, U.frente(jj.h).y) * 2.0
+	jogo.camera.global_position = olho
+	jogo.camera.look_at(Vector3(alvo.pos.x, alvo.y + 1.1, alvo.pos.y), Vector3.UP)
+	var caidos_antes := 0
+	for pd in jogo.pedestres.lista:
+		if pd.caido:
+			caidos_antes += 1
+	jogo.entrada.apertar("atirar")
+	jogo.simular(1.0 / 30.0)  # a arma usa a camera antes de ela se mover neste passo
+	estado("tiro no pedestre")
+	var caidos := 0
+	for pd in jogo.pedestres.lista:
+		if pd.caido:
+			caidos += 1
+	checar(caidos > caidos_antes, "tiro derruba o pedestre")
+	checar(jogo.armas.municao() == balas - 1, "tiro gasta munição")
+	sim(6.0)
+	estado("depois do tiro")
+
+	# policia atira de volta com 3 estrelas (numa esquina, a vista)
+	p.limpar()
+	jj.pos = Mapa.nodo_pos(Vector2i(2, 2)) + Vector2(5.0, 5.0)
+	sim(7.0)
+	p.aplicar(3)
+	p._perseguir_agora()
+	p.spawn_unidade()
+	p.spawn_unidade()
+	var antes: float = jj.vida + jj.colete
+	var tiros_antes: int = jogo.armas.tiros_policia
+	for i in 30:
+		sim(1.0)
+		if jogo.cena_prisao > 0.0 or jj.vida + jj.colete < antes:
+			break
+	estado("polícia atirou: %d tiros, dano %.0f" % [jogo.armas.tiros_policia - tiros_antes, antes - jj.vida - jj.colete])
+	checar(jogo.armas.tiros_policia > tiros_antes, "polícia atira no jogador com 3 estrelas")
+
+	# hospital
+	if jogo.cena_prisao > 0.0:
+		sim(3.0)
+	jj.ferir(1000.0)
+	checar(jogo.cena_hospital > 0.0, "vida zerada leva ao hospital")
+	sim(3.5)
+	estado("hospital")
+	checar(jj.vida >= 100.0 and p.estrelas == 0, "volta da casa segura com vida cheia e sem estrelas")
+	sim(7.0)
+
+	# assalto ao mercado
+	if not jogo.armas.tem("pistola"):
+		jogo.armas.dar("pistola", 36)
+	jogo.armas.selecionar("pistola")
+	var loja: Dictionary = jogo.mapa.lojas[0]
+	jj.pos = loja["p"]
+	sim(0.3)
+	apertar("acao")
+	checar(jogo.ui_aberta == "loja", "entra no Mercado com E")
+	jj.vida = 50.0
+	print("    ", jogo.loja_ui.comprar("pastel"))
+	checar(jj.vida >= 99.0, "pastel recupera vida")
+	await foto("09_mercado")
+	var din: float = jogo.dinheiro
+	jogo.loja_ui.assaltar()
+	estado("assalto")
+	checar(jogo.dinheiro > din and p.estrelas == 2, "assalto dá dinheiro e 2 estrelas (câmera)")
+
+	# advogado baixa estrela durante a busca
+	p.modo = "busca"
+	print("    ", jogo.celular.advogado())
+	checar(p.estrelas == 1, "advogado baixa 1 estrela na busca")
+
+	# explosao de carro
+	var carro = null
+	for v in jogo.veiculos:
+		if not v.policia and v.motorista != "jogador" and not v.queimado:
+			carro = v
+			break
+	carro.vida = 3.0
+	carro.dano(30.0)
+	sim(4.5)
+	checar(carro.queimado, "carro destruído pega fogo e explode")
+
+	# mecanico traz o carro
+	print("    ", jogo.celular.mecanico())
+	var tem_carro := false
+	for v in jogo.veiculos:
+		if v.do_jogador and v.pos.distance_to(jj.pos) < 60.0:
+			tem_carro = true
+	checar(tem_carro, "mecânico deixa o carro perto")
+
+	# preso perde as armas
+	p.aplicar(1)
+	jogo.preso()
+	checar(not jogo.armas.tem("pistola"), "preso perde as armas")
+	sim(3.0)

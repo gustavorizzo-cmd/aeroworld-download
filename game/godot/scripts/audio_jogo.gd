@@ -43,6 +43,14 @@ func _ready() -> void:
 	efeitos["etapa"] = _tons([[660.0, 0.15, 0.0, "t", 0.35], [990.0, 0.2, 0.1, "t", 0.3]])
 	efeitos["missao"] = _tons([[392.0, 0.3, 0.0, "t", 0.35], [523.0, 0.3, 0.12, "t", 0.35], [659.0, 0.3, 0.24, "t", 0.35], [784.0, 0.4, 0.36, "t", 0.35]])
 	efeitos["batida"] = _ruido(0.45)
+	efeitos["tiro_pistola"] = _disparo(0.2, 0.5, 1.0)
+	efeitos["tiro_escopeta"] = _disparo(0.4, 0.25, 1.0)
+	efeitos["tiro_submetralhadora"] = _disparo(0.13, 0.6, 0.8)
+	efeitos["soco"] = _disparo(0.09, 0.08, 0.9)
+	efeitos["explosao"] = _disparo(1.5, 0.04, 1.0)
+	efeitos["vazio"] = _tons([[900.0, 0.03, 0.0, "q", 0.2]])
+	efeitos["compra"] = _tons([[880.0, 0.08, 0.0, "t", 0.3], [1320.0, 0.14, 0.08, "t", 0.3]])
+	efeitos["notificacao"] = _tons([[1046.0, 0.09, 0.0, "t", 0.3], [1318.0, 0.14, 0.11, "t", 0.3]])
 
 
 func _onda(tipo: String, fase: float) -> float:
@@ -91,6 +99,23 @@ func _ruido(dur: float) -> AudioStreamWAV:
 		lp += (randf_range(-1.0, 1.0) - lp) * 0.25
 		a[i] = lp * pow(1.0 - float(i) / n, 2.0) * 1.6
 	return _wav(a)
+
+
+## Estalo de ruido filtrado: `brilho` alto = estalo seco, baixo = estrondo grave.
+func _disparo(dur: float, brilho: float, vol: float) -> AudioStreamWAV:
+	var a := PackedFloat32Array()
+	var n := int(dur * TAXA)
+	a.resize(n)
+	var lp := 0.0
+	for i in n:
+		lp += (randf_range(-1.0, 1.0) - lp) * brilho
+		var env := exp(-6.0 * float(i) / n)
+		a[i] = lp * env * vol * (2.2 if brilho < 0.3 else 1.3)
+	return _wav(a)
+
+
+func tiro(tipo: String, volume: float = 1.0) -> void:
+	tocar("tiro_" + tipo, volume)
 
 
 func tocar(nome: String, volume: float = 1.0) -> void:

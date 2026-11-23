@@ -1,6 +1,6 @@
 class_name Jogador
 extends RefCounted
-## Personagem a pe; entra, sai e rouba carros; troca de roupa.
+## Personagem a pe; entra, sai e rouba carros; troca de roupa; vida, colete, mira e soco.
 
 const ROUPAS := [
 	{"camisa": "#e2553a", "calca": "#2d3a55", "nome": "camisa coral"},
@@ -24,6 +24,9 @@ var vel := 0.0
 var fase := 0.0
 var veiculo = null
 var caido := 0.0
+var vida := 100.0
+var colete := 0.0
+var t_soco := 0.0
 
 
 func _init(p_jogo, x: float, z: float) -> void:
@@ -32,7 +35,10 @@ func _init(p_jogo, x: float, z: float) -> void:
 	mat_camisa = Veiculo.pintar(obj, "Roupa_Camisa", Color(ROUPAS[0]["camisa"]))
 	mat_calca = Veiculo.pintar(obj, "Roupa_Calca", Color(ROUPAS[0]["calca"]))
 	for n in ["braco_esq", "braco_dir", "perna_esq", "perna_dir"]:
-		membros.append(obj.find_child(n, true, false))
+		var no: Node3D = obj.find_child(n, true, false)
+		if no:
+			no.rotation_order = EULER_ORDER_XYZ
+		membros.append(no)
 	pos = Vector2(x, z)
 	jogo.add_child(obj)
 
@@ -65,10 +71,31 @@ func trocar_roupa() -> Dictionary:
 	return vestir(id)
 
 
+func ferir(dano: float) -> void:
+	if jogo.cena_prisao > 0.0 or jogo.cena_hospital > 0.0 or vida <= 0.0:
+		return
+	var absorvido := minf(colete, dano)
+	colete -= absorvido
+	vida = maxf(0.0, vida - (dano - absorvido))
+	jogo.hud.dano()
+	if vida <= 0.0:
+		jogo.morreu()
+
+
+func curar(qtd: float) -> void:
+	vida = minf(100.0, vida + qtd)
+
+
+func socar() -> void:
+	t_soco = 0.25
+
+
 func veiculo_proximo():
 	var melhor = null
 	var md := 3.4 * 3.4
 	for v in jogo.veiculos:
+		if v.queimado:
+			continue
 		var d: float = v.pos.distance_squared_to(pos)
 		if d < md:
 			md = d
@@ -95,9 +122,9 @@ func entrar(v) -> void:
 	jogo.audio.porta()
 
 
-func sair() -> void:
+func sair(forcar: bool = false) -> void:
 	var v = veiculo
-	if v == null or v.velocidade() > 5.0:
+	if v == null or (v.velocidade() > 5.0 and not forcar):
 		return
 	pos = v.pos - U.direita(v.h) * 1.7
 	h = v.h
@@ -110,25 +137,29 @@ func sair() -> void:
 
 
 func atualizar(dt: float, entrada, yaw_camera: float) -> void:
-	var ex: Vector2 = entrada.eixos()
-	if entrada.apertou("acao") and jogo.policia.prendendo <= 0.0:
+	var livre: bool = jogo.ui_aberta == ""
+	var ex: Vector2 = entrada.eixos() if livre else Vector2.ZERO
+	if livre and entrada.apertou("acao") and jogo.policia.prendendo <= 0.0:
 		if veiculo:
 			sair()
 		else:
 			var v = veiculo_proximo()
 			if v:
 				entrar(v)
-	if entrada.apertou("buzina") and veiculo:
+	if livre and entrada.apertou("buzina") and veiculo:
 		jogo.audio.buzina()
+	if vida < 40.0 and vida > 0.0:
+		vida = minf(40.0, vida + 1.5 * dt)
 
 	if veiculo:
 		veiculo.ctrl["acel"] = maxf(ex.y, 0.0)
 		veiculo.ctrl["freio"] = maxf(-ex.y, 0.0)
 		veiculo.ctrl["virar"] = ex.x
-		veiculo.ctrl["freio_mao"] = entrada.segurando("freio_mao")
+		veiculo.ctrl["freio_mao"] = livre and entrada.segurando("freio_mao")
 		return
 
 	# ---- a pe
+	var mirando: bool = jogo.armas.mirando
 	if caido > 0.0:
 		caido -= dt
 		obj.rotation.x = -PI / 2.0
@@ -138,10 +169,15 @@ func atualizar(dt: float, entrada, yaw_camera: float) -> void:
 		var mag := minf(1.0, dir.length())
 		var alvo_vel := 0.0
 		if mag > 0.1:
-			alvo_vel = (7.5 if entrada.segurando("correr") else 4.2) * mag
+			var corre: bool = entrada.segurando("correr") and not mirando
+			alvo_vel = (3.0 if mirando else (7.5 if corre else 4.2)) * mag
+		if mirando:
+			h += U.ang_diff(h, yaw_camera) * minf(1.0, dt * 18.0)
+		elif mag > 0.1:
 			h += U.ang_diff(h, U.heading_de(dir)) * minf(1.0, dt * 12.0)
 		vel = U.suavizar(vel, alvo_vel, 10.0, dt)
-		pos += U.frente(h) * vel * dt
+		var mov := dir.normalized() if mag > 0.1 else Vector2.ZERO
+		pos += (mov if mirando else U.frente(h)) * vel * dt
 	pos = Fisica.resolver_circulo(jogo.mapa, pos, 0.35)
 	for v in jogo.veiculos:
 		if v.pos.distance_squared_to(pos) > 16.0:
@@ -155,13 +191,23 @@ func atualizar(dt: float, entrada, yaw_camera: float) -> void:
 				pos += d / dl * (rr - dl)
 				if v.velocidade() > 9.0 and caido <= 0.0:
 					caido = 1.6
+					ferir(v.velocidade() * 1.5)
 					jogo.hud.mensagem("Você foi atropelado!", 1.5)
 	y = U.suavizar(y, jogo.mapa.altura_chao(pos.x, pos.y), 15.0, dt)
 
+	# animacao procedural
 	var amp := minf(1.0, vel / 7.0) * 0.95
 	fase += vel * dt * 1.9
 	var s := sin(fase) * amp
 	var giros := [s, -s, -s, s]
+	t_soco = maxf(0.0, t_soco - dt)
+	var armado: bool = jogo.armas.armado()
+	if mirando and armado:
+		var mira: float = jogo.camera.mira_pitch
+		giros[1] = PI / 2.0 + mira
+		giros[0] = PI / 2.0 - 0.3 + mira
+	elif t_soco > 0.0:
+		giros[1] = PI / 2.0 * (t_soco / 0.25)
 	for i in membros.size():
 		if membros[i]:
 			membros[i].rotation.x = giros[i]

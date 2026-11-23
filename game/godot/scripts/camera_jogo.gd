@@ -10,12 +10,20 @@ var t_arraste := -10.0
 var alvo := Vector3.ZERO
 var pos_suave := Vector3(0, 10, 10)
 var mapa
+var mira_pitch := 0.0  # para cima > 0 (modo mira)
 
 
 func atualizar(dt: float, jogo, entrada) -> void:
 	var jj = jogo.jogador
 	var a: Vector2 = entrada.consumir_arraste()
 	var joy: Vector2 = entrada.camera_joy()
+	if jogo.ui_aberta != "":
+		a = Vector2.ZERO
+		joy = Vector2.ZERO
+	if jogo.armas.mirando:
+		_mirar(dt, jogo, a, joy)
+		return
+	mira_pitch = U.suavizar(mira_pitch, 0.0, 6.0, dt)
 	if a.length() > 0.0 or joy.length() > 0.0:
 		yaw -= a.x * 0.004 + joy.x * dt * 2.6
 		pitch = clampf(pitch + a.y * 0.003 + joy.y * dt * 1.6, 0.05, 1.2)
@@ -57,3 +65,20 @@ func atualizar(dt: float, jogo, entrada) -> void:
 		look_at(olhar, Vector3.UP)
 	var fov_alvo := 62.0 + (minf(v.velocidade(), 40.0) * 0.3 if v else 0.0)
 	fov = U.suavizar(fov, fov_alvo, 3.0, dt)
+
+
+## Camera por cima do ombro direito; o centro da tela e para onde o tiro vai.
+func _mirar(dt: float, jogo, a: Vector2, joy: Vector2) -> void:
+	var jj = jogo.jogador
+	yaw -= a.x * 0.003 + joy.x * dt * 2.0
+	mira_pitch = clampf(mira_pitch - a.y * 0.003 - joy.y * dt * 1.4, -0.6, 0.7)
+	t_arraste = jogo.tempo
+	alvo = Vector3(jj.pos.x, jj.y + 1.55, jj.pos.y)
+	var f3 := Vector3(-sin(yaw) * cos(mira_pitch), sin(mira_pitch), -cos(yaw) * cos(mira_pitch))
+	var dir := U.direita(yaw)
+	var desejada := alvo + Vector3(dir.x, 0, dir.y) * 0.75 - f3 * 2.4 + Vector3(0, 0.15, 0)
+	pos_suave = pos_suave.lerp(desejada, 1.0 - exp(-20.0 * dt))
+	position = pos_suave
+	look_at(position + f3, Vector3.UP)
+	fov = U.suavizar(fov, 50.0, 10.0, dt)
+	pitch = 0.3

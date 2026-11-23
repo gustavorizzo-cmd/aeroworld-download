@@ -40,6 +40,7 @@ var celulas := {}
 var blocos: Array = []  # {bi, bj, c: Vector2, distrito}
 var estacionados: Array = []  # {p: Vector2, h}
 var poi := {}  # nome -> {p: Vector2, nome, h}
+var lojas: Array = []  # mercados: {p: porta, id}
 var rng := RandomNumberGenerator.new()
 var fusao := Fusao.new()
 var _mats := {}
@@ -313,6 +314,7 @@ func _construir_bloco(bi: int, bj: int) -> void:
 			var z: float = l[1]
 			if idx == loja_idx:
 				colocar("loja", cx + x, cz + z + (-9.0 if z < 0.0 else 9.0), l[2], {"caixa": true})
+				_registrar_loja(cx + x, cz + z + (-9.0 if z < 0.0 else 9.0), l[2])
 			else:
 				colocar("predio_centro", cx + x, cz + z, l[2], {"caixa": true, "escala_y": 0.5 + sorte() * 0.75})
 		colocar("palmeira", cx - 3.0, cz, sorte() * 6.0, {"raio": 0.35})
@@ -330,6 +332,7 @@ func _construir_bloco(bi: int, bj: int) -> void:
 			poi["oficina"] = {"p": Vector2(cx + 29.0, cz - 1.5), "nome": "Oficina de Pintura"}
 		else:
 			colocar("loja", cx + 20.0, cz - 14.0, leste, {"caixa": true})
+			_registrar_loja(cx + 20.0, cz - 14.0, leste)
 			if bj == 3:
 				poi["loja"] = {"p": Vector2(cx + 26.5, cz - 12.0), "nome": "Mercado da Orla"}
 		if bj == 3:
@@ -346,6 +349,9 @@ func _construir_bloco(bi: int, bj: int) -> void:
 		colocar("galpao_porto", cx, cz - 5.0, 0.0, {"caixa": true, "paleta": ["Pintura_Galpao", cor_galpao]})
 		if bi == 0 and bj == 3:
 			poi["galpao"] = {"p": Vector2(cx - 7.0, cz - 20.4), "nome": "Armazém 3"}
+		if bi == 0 and bj == 2:
+			poi["arsenal"] = {"p": Vector2(cx + 7.0, cz - 20.0), "nome": "Arsenal do Porto"}
+			_placa("ARSENAL DO PORTO", Vector3(cx + 7.0, 5.2, cz - 15.85), PI, Color("#ff5a4a"))
 		if bi == 0 and bj == 1:
 			poi["encontro"] = {"p": Vector2(cx + 8.0, cz + 22.0), "nome": "Encontro no Porto"}
 		var cores := ["#1f5f8b", "#b8362b", "#2f7d4a", "#d08a22", "#6a6f75"]
@@ -374,6 +380,34 @@ func _construir_bloco(bi: int, bj: int) -> void:
 					estacionados.append({"p": Vector2(cx + x + 3.2, cz + fz), "h": PI / 2.0 if z < 0.0 else -PI / 2.0})
 		if sorte() < 0.6:
 			colocar("palmeira", cx + 9.0, cz, sorte() * 6.0, {"raio": 0.35})
+
+
+## A porta do mercado fica na frente, do lado direito da fachada.
+func _registrar_loja(x: float, z: float, rot: float) -> void:
+	var c := Vector2(x, z)
+	lojas.append({"p": c + U.frente(rot) * 5.6 + U.direita(rot) * 3.7, "id": lojas.size()})
+
+
+## Letreiro 3D (texto + fundo) numa fachada.
+func _placa(texto: String, p: Vector3, rot: float, cor: Color) -> void:
+	var fundo := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(6.2, 1.0, 0.2)
+	fundo.mesh = bm
+	fundo.material_override = material("#1b1d22")
+	fundo.position = p
+	fundo.rotation.y = rot
+	add_child(fundo)
+	var l := Label3D.new()
+	l.text = texto
+	l.font_size = 120
+	l.pixel_size = 0.0058
+	l.modulate = cor
+	l.outline_size = 0
+	l.double_sided = false
+	l.position = p + Basis(Vector3.UP, rot) * Vector3(0, 0, 0.12)
+	l.rotation.y = rot
+	add_child(l)
 
 
 func _construir_praia() -> void:

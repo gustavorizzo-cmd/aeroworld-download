@@ -7,8 +7,8 @@ as mesmas mecânicas:
 
 | Versão | Pasta | Para quê |
 |---|---|---|
-| **Godot 4** (principal) | [`godot/`](godot/README.md) | onde o jogo vai crescer: editor visual, melhor desempenho, exporta .exe |
-| Navegador (Three.js) | `web/` | demo rápida: abre com dois cliques ou por link |
+| **Godot 4** (principal, v0.2) | [`godot/`](godot/README.md) | onde o jogo cresce: tem também mercado, celular, armas, vida e hospital |
+| Navegador (Three.js, v0.1) | `web/` | demo rápida: abre com dois cliques ou por link |
 
 ## Como jogar no navegador
 

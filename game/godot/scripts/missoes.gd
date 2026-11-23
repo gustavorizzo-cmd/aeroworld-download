@@ -124,6 +124,12 @@ func concluir() -> void:
 	jogo.hud.cronometro(-1.0)
 	jogo.hud.banner("Missão cumprida", "%s  +%s" % [m["nome"], U.dinheiro(m["recompensa"])], 3.5)
 	jogo.audio.missao()
+	var textos := {
+		"carro_de_luxo": "Valeu pelo esportivo. O dono do Mercado da Orla precisa de um entregador. Passa lá.",
+		"entrega_expressa": "Tem um contato querendo te conhecer. Me encontra na Praça do Centro.",
+		"encontro_furado": "Aquilo foi armação. Fica esperto e se arma: o Arsenal do Porto vende de tudo. Por enquanto é só.",
+	}
+	jogo.nova_mensagem("Rui", textos.get(m["id"], "Bom trabalho."))
 	if disponivel() == null:
 		jogo.hud.mensagem("Você terminou todas as missões desta versão. Explore Porto Brasa!", 5.0)
 

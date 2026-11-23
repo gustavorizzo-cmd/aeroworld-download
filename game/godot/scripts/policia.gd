@@ -38,6 +38,8 @@ var t_spawn := 0.0
 var cd_batida := 0.0
 var cd_bloqueio := 6.0
 var prendendo := 0.0
+var cd_ataque := 0.0
+var cd_heli := 0.0
 var carencia := 3.0  # segundos sem a policia agir (inicio do jogo e depois de preso)
 var bloqueios: Array = []
 var heli = null
@@ -60,7 +62,7 @@ func j():
 
 
 func olhos() -> Array:
-	return jogo.veiculos.filter(func(v): return v.policia and v.motorista == "ia")
+	return jogo.veiculos.filter(func(v): return v.policia and v.motorista == "ia" and not v.queimado)
 
 
 func unidades() -> Array:
@@ -225,6 +227,8 @@ func atualizar(dt: float) -> void:
 	var p: Vector2 = jj.posicao()
 	cd_batida -= dt
 	cd_bloqueio -= dt
+	cd_ataque -= dt
+	cd_heli -= dt
 
 	if carencia > 0.0:
 		carencia -= dt
@@ -290,6 +294,9 @@ func escapou() -> void:
 	modo = "limpo"
 	zona = null
 	prendendo = 0.0
+	vendo = false
+	t_visao = 0.0
+	carencia = maxf(carencia, 2.0)
 	ficha["expira"] = jogo.tempo + 150.0
 	dispensar()
 
@@ -315,6 +322,30 @@ func dispensar() -> void:
 		Trafego.iniciar_ia(jogo, v, n, jogo.mapa.vizinhos(n).pick_random())
 	if heli != null:
 		heli["saindo"] = true
+
+
+## O jogador atacou a policia (tiro em viatura ou helicoptero).
+func atacada(msg: String) -> void:
+	if cd_ataque > 0.0 or carencia > 0.0:
+		return
+	cd_ataque = 6.0
+	var jj = j()
+	registrar(jj.veiculo, -1 if jj.veiculo else jj.roupa_id)
+	aplicar(3 if estrelas < 3 else estrelas + 1, msg)
+	_perseguir_agora()
+
+
+func dano_heli(dano: float) -> void:
+	if heli == null or heli["saindo"]:
+		return
+	heli["vida"] -= dano * 0.35
+	if heli["vida"] <= 0.0:
+		var pos3 := Vector3(heli["pos"].x, heli["y"], heli["pos"].y)
+		jogo.audio.tocar("explosao")
+		jogo.hud.mensagem("Você derrubou o helicóptero! Outro vai demorar a chegar.", 3.0)
+		_remover_heli()
+		cd_heli = 60.0
+		jogo.armas.explosao_visual(pos3)
 
 
 # ------------------------------------------------------------------ unidades
@@ -363,7 +394,7 @@ func _gerenciar_unidades(dt: float) -> void:
 				recrutar(patrulha)
 			else:
 				spawn_unidade()
-	if estrelas >= 4 and (heli == null or heli["saindo"]):
+	if estrelas >= 4 and (heli == null or heli["saindo"]) and cd_heli <= 0.0:
 		_criar_heli()
 
 
@@ -441,7 +472,7 @@ func _conduzir_unidades(dt: float) -> void:
 # ------------------------------------------------------------------ prisao
 func _atualizar_prisao(dt: float) -> void:
 	var jj = j()
-	if estrelas == 0 or modo != "perseguicao" or carencia > 0.0 or jogo.cena_prisao > 0.0:
+	if estrelas == 0 or modo != "perseguicao" or carencia > 0.0 or jogo.cena_prisao > 0.0 or jogo.cena_hospital > 0.0:
 		prendendo = maxf(0.0, prendendo - dt * 2.0)
 		return
 	var lento: bool = jj.velocidade() < (2.0 if jj.veiculo else 3.5)
@@ -455,8 +486,13 @@ func _atualizar_prisao(dt: float) -> void:
 		prendendo += dt
 	else:
 		prendendo = maxf(0.0, prendendo - dt * 1.5)
-	if prendendo > 2.5:
+	if prendendo > limite_prisao():
 		jogo.preso()
+
+
+## Com 3+ estrelas a policia atira mais e demora mais para prender.
+func limite_prisao() -> float:
+	return 2.5 if estrelas < 3 else 4.0
 
 
 # ------------------------------------------------------------------ bloqueios
@@ -580,7 +616,7 @@ func _criar_heli() -> void:
 	var p: Vector2 = j().posicao()
 	var obj: Node3D = jogo.instanciar("helicoptero_policia")
 	jogo.add_child(obj)
-	heli = {"obj": obj, "pos": p + Vector2(90, 90), "y": 45.0, "h": 0.0, "saindo": false,
+	heli = {"obj": obj, "pos": p + Vector2(90, 90), "y": 45.0, "h": 0.0, "saindo": false, "vida": 100.0,
 		"rotor": obj.find_child("rotor_principal", true, false), "cauda": obj.find_child("rotor_cauda", true, false)}
 	jogo.hud.mensagem("Helicóptero da polícia no ar!", 3.0)
 

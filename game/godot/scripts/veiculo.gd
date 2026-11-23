@@ -40,6 +40,9 @@ var do_jogador := false
 var estatico := false
 var sirene_ligada := false
 var derrapando := false
+var queimado := false
+var ia_queimando := false
+var cd_tiro := 0.0
 
 
 func _init(p_jogo, p_tipo: String, x: float, z: float, p_h: float, p_cor = null) -> void:
@@ -140,8 +143,8 @@ func circulos() -> Array:
 func dano(forca: float) -> void:
 	var antes := vida
 	vida = maxf(0.0, vida - (forca - 5.0) * 1.7)
-	if antes > 0.0 and vida <= 0.0 and motorista == "jogador":
-		jogo.hud.mensagem("O motor morreu. Saia do carro (E).", 3.0)
+	if antes > 0.0 and vida <= 0.0:
+		jogo.armas.incendiar(self)
 
 
 func atualizar(dt: float) -> void:

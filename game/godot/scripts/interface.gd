@@ -116,7 +116,7 @@ func _coluna(t: Control) -> VBoxContainer:
 
 func _montar_inicio() -> void:
 	var vb := _coluna(inicio)
-	vb.add_child(_rotulo("VERSÃO 0.1 · PROTÓTIPO JOGÁVEL · GODOT", 15, COR_OURO))
+	vb.add_child(_rotulo("VERSÃO 0.2 · PROTÓTIPO JOGÁVEL · GODOT", 15, COR_OURO))
 	var tit := VBoxContainer.new()
 	tit.add_theme_constant_override("separation", -18)
 	tit.add_child(_titulo("PORTO", 92, COR_TEXTO, COR_BRASA))
@@ -145,7 +145,9 @@ func _montar_inicio() -> void:
 		["W A S D / setas", "andar e dirigir"], ["E", "entrar, sair, roubar carro"],
 		["Shift", "correr a pé"], ["Espaço", "freio de mão"],
 		["Mouse", "girar a câmera"], ["M · H · Esc", "mapa · buzina · pausa"],
-		["Controle", "gatilhos aceleram, Y entra, RB freio de mão"], ["N", "liga/desliga o som"],
+		["Botão direito", "mirar (com arma)"], ["Botão esquerdo", "atirar / socar"],
+		["Q ou rodinha", "trocar de arma"], ["Tab", "celular"],
+		["Controle", "gatilhos aceleram, Y entra, LB mira, RB atira"], ["N", "liga/desliga o som"],
 	]:
 		var l := _rotulo("%s   %s" % [linha[0], linha[1]], 16, COR_TEXTO)
 		grade.add_child(l)

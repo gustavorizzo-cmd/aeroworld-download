@@ -212,18 +212,25 @@ func ligar(pd: Ped, denuncia) -> void:
 	pd.icone.visible = true
 
 
-func atropelar(pd: Ped, v) -> void:
+## Derruba o pedestre (atropelado, baleado, socado). Ele levanta e some depois.
+func derrubar(pd: Ped, impulso: Vector2, vy: float) -> void:
+	if pd.caido:
+		return
 	pd.caido = true
 	pd.estado = "caido"
 	pd.icone.visible = false
-	pd.vxz = v.vel * 0.7
-	pd.vy = 3.0 + v.velocidade() * 0.15
+	pd.vxz = impulso
+	pd.vy = vy
 	pd.timer = 12.0
 	pd.denuncia = null
+	panico(pd.pos, 25.0)
+
+
+func atropelar(pd: Ped, v) -> void:
+	derrubar(pd, v.vel * 0.7, 3.0 + v.velocidade() * 0.15)
 	if v.motorista == "jogador":
 		jogo.crime("atropelamento", pd.pos, 2, {"carro": v})
 		jogo.audio.batida(6.0)
-	panico(pd.pos, 25.0)
 
 
 func _voltar(pd: Ped) -> void:

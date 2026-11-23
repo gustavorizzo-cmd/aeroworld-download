@@ -15,6 +15,9 @@ const COR_BRASA := Color("#ff6a2b")
 const COR_MAR := Color("#22d3ee")
 const COR_VERM := Color("#ff2a3a")
 const COR_AZUL := Color("#3a74ff")
+const COR_ROXO := Color("#b07cff")
+const COR_LOJA := Color("#7be38a")
+const COR_ARSENAL := Color("#ff6b6b")
 
 var jogo
 var raiz: Control
@@ -51,6 +54,12 @@ var t_banner := 0.0
 var _ultima_dica := ""
 var _t_dica := -10.0
 var historico: Array = []  # usado pelos testes
+var barra_vida: ColorRect
+var barra_colete: ColorRect
+var arma_painel: PanelContainer
+var arma_lbl: Label
+var mira_ctl: Control
+var flash: ColorRect
 
 
 func _init(p_jogo) -> void:
@@ -168,12 +177,32 @@ func _montar() -> void:
 	mini.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	mini.offset_left = 14
 	mini.offset_right = 14 + 250
-	mini.offset_top = -14 - 180
-	mini.offset_bottom = -14
+	mini.offset_top = -26 - 180
+	mini.offset_bottom = -26
 	mini.clip_contents = true
 	mini.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mini.draw.connect(_desenhar_mini)
 	raiz.add_child(mini)
+	# barras de vida (verde) e colete (azul) embaixo do minimapa
+	for i in 2:
+		var fundo_b := ColorRect.new()
+		fundo_b.color = Color(0, 0, 0, 0.55)
+		fundo_b.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		fundo_b.offset_left = 14 + i * 126
+		fundo_b.offset_right = 14 + i * 126 + 124
+		fundo_b.offset_top = -21
+		fundo_b.offset_bottom = -14
+		fundo_b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var barra := ColorRect.new()
+		barra.color = Color("#5ec26a") if i == 0 else Color("#4aa3ff")
+		barra.size = Vector2(124, 7)
+		barra.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fundo_b.add_child(barra)
+		raiz.add_child(fundo_b)
+		if i == 0:
+			barra_vida = barra
+		else:
+			barra_colete = barra
 	distrito_lbl = rotulo("", 26, COR_TEXTO, true)
 	_ancorar(distrito_lbl, Control.PRESET_BOTTOM_LEFT, 280, -56)
 	distrito_lbl.modulate.a = 0.0
@@ -207,6 +236,33 @@ func _montar() -> void:
 	velo.add_child(vv)
 	velo.visible = false
 	raiz.add_child(velo)
+
+	# arma (a pe, no lugar do velocimetro)
+	arma_painel = painel()
+	arma_painel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	arma_painel.offset_left = -14
+	arma_painel.offset_right = -14
+	arma_painel.offset_top = -14
+	arma_painel.offset_bottom = -14
+	arma_painel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	arma_painel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	arma_lbl = rotulo("", 20)
+	arma_painel.add_child(arma_lbl)
+	raiz.add_child(arma_painel)
+
+	# mira no centro da tela
+	mira_ctl = Control.new()
+	mira_ctl.set_anchors_preset(Control.PRESET_CENTER)
+	mira_ctl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mira_ctl.draw.connect(_desenhar_mira)
+	raiz.add_child(mira_ctl)
+
+	# clarao vermelho ao levar dano
+	flash = ColorRect.new()
+	flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	flash.color = Color(0.85, 0.05, 0.05, 0.0)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	raiz.add_child(flash)
 
 	# mensagens (topo, centro)
 	msgs = VBoxContainer.new()
@@ -291,7 +347,7 @@ func _montar() -> void:
 	_ancorar(cab, Control.PRESET_TOP_LEFT, 20, 14)
 	cab.add_theme_constant_override("separation", 18)
 	cab.add_child(rotulo("PORTO BRASA", 24))
-	for item in [["Você", COR_BRASA], ["Nova missão", COR_OURO], ["Objetivo", COR_MAR], ["Casa segura", Color("#7fd1ff")], ["Oficina de pintura", Color("#ffb057")], ["Área de busca", COR_VERM]]:
+	for item in [["Você", COR_BRASA], ["Nova missão", COR_OURO], ["Objetivo", COR_MAR], ["Casa segura", Color("#7fd1ff")], ["Oficina de pintura", Color("#ffb057")], ["Área de busca", COR_VERM], ["Mercado", COR_LOJA], ["Arsenal", COR_ARSENAL], ["Destino", COR_ROXO]]:
 		cab.add_child(rotulo("●  " + item[0], 15, item[1]))
 	cab.add_child(rotulo("M fecha", 15, COR_SUAVE))
 	mapa_grande.add_child(cab)
@@ -415,6 +471,22 @@ func cronometro(seg: float) -> void:
 	cronometro_lbl.add_theme_color_override("font_color", COR_VERM if s <= 15 else COR_TEXTO)
 
 
+func dano() -> void:
+	flash.color.a = 0.35
+	var tw := flash.create_tween()
+	tw.tween_property(flash, "color:a", 0.0, 0.5)
+
+
+func _desenhar_mira() -> void:
+	var c := Color(1, 1, 1, 0.9)
+	var mirando: bool = jogo.armas.mirando
+	var abre := 4.0 if mirando else 9.0
+	for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		mira_ctl.draw_line(d * abre, d * (abre + 7.0), Color(0, 0, 0, 0.6), 4.0)
+		mira_ctl.draw_line(d * abre, d * (abre + 7.0), c, 2.0)
+	mira_ctl.draw_circle(Vector2.ZERO, 1.6, c)
+
+
 func alternar_mapa() -> void:
 	mapa_grande.visible = not mapa_grande.visible
 
@@ -450,8 +522,20 @@ func atualizar(dt: float) -> void:
 	else:
 		velo.visible = false
 
+	barra_vida.size.x = 124.0 * jj.vida / 100.0
+	barra_colete.size.x = 124.0 * jj.colete / 100.0
+	var a_pe: bool = jj.veiculo == null
+	var armas = jogo.armas
+	arma_painel.visible = a_pe
+	if a_pe:
+		var t: Dictionary = Armas.TIPOS[armas.atual]
+		arma_lbl.text = t["nome"].to_upper() + ("" if armas.atual == "punho" else "   %d" % armas.municao())
+	mira_ctl.visible = a_pe and (armas.armado() or armas.mirando) and jogo.ui_aberta == ""
+	if mira_ctl.visible:
+		mira_ctl.queue_redraw()
+
 	prisao.visible = p.prendendo > 0.05
-	prisao_fill.size.x = minf(1.0, p.prendendo / 2.5) * 280.0
+	prisao_fill.size.x = minf(1.0, p.prendendo / p.limite_prisao()) * 280.0
 
 	var lig = null
 	for pd in jogo.pedestres.lista:
@@ -537,9 +621,18 @@ func _sobrepor(ctl: Control, conv: Callable, s: float, raio_px: float) -> void:
 		var pa: Vector2 = conv.call(alvo["p"])
 		ctl.draw_circle(pa, maxf(5.0, 6.0 * s) + 2.0, Color("#10161d"))
 		ctl.draw_circle(pa, maxf(5.0, 6.0 * s), cor)
+	if jogo.destino != null:
+		var pts2 := PackedVector2Array()
+		for q in jogo.mapa.rota_gps(pos, jogo.destino):
+			pts2.append(conv.call(q))
+		ctl.draw_polyline(pts2, COR_ROXO, maxf(3.0, 4.0 * s), true)
+		ctl.draw_circle(conv.call(jogo.destino), maxf(5.0, 6.0 * s), COR_ROXO)
 	var poi: Dictionary = jogo.mapa.poi
-	for item in [["casa", "C", Color("#7fd1ff")], ["oficina", "P", Color("#ffb057")]]:
-		var q: Vector2 = conv.call(poi[item[0]]["p"])
+	var icones := [[poi["casa"]["p"], "C", Color("#7fd1ff")], [poi["oficina"]["p"], "P", Color("#ffb057")], [poi["arsenal"]["p"], "A", COR_ARSENAL]]
+	for l in jogo.mapa.lojas:
+		icones.append([l["p"], "M", COR_LOJA])
+	for item in icones:
+		var q: Vector2 = conv.call(item[0])
 		ctl.draw_circle(q, raio_px, item[2])
 		ctl.draw_string(fonte, q + Vector2(-raio_px, raio_px * 0.45), item[1], HORIZONTAL_ALIGNMENT_CENTER, raio_px * 2.0, int(raio_px * 1.4), Color("#10161d"))
 	# viaturas so aparecem se estiverem perto (sem radar de policia)

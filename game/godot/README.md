@@ -1,7 +1,27 @@
 # Porto Brasa — projeto Godot 4
 
-Versão 0.1 do jogo portada para a **Godot 4.4** (GDScript), com as mesmas
-mecânicas da versão de navegador e os mesmos modelos do Blender.
+Versão 0.2 do jogo na **Godot 4.4** (GDScript), com os modelos do Blender.
+Tem tudo da v0.1 (que também existe na versão de navegador) e mais:
+
+- **Mercado:** entre com E nas lojas "MERCADO" (ícone M verde no mapa).
+  Água de coco, pastel e kit médico recuperam a vida. Armado, dá para
+  **assaltar o caixa**: rende R$ 250 a 600, mas a câmera grava e vêm 2 estrelas.
+- **Arsenal do Porto** (ícone A vermelho): pistola, escopeta, submetralhadora,
+  munição e colete.
+- **Armas:** botão direito mira por cima do ombro, esquerdo atira, Q ou rodinha
+  trocam de arma, 1 a 4 escolhem. Atirar em público assusta as pessoas e gera
+  denúncia. Acertar pessoas dá 3 estrelas. Atirar na polícia dá pelo menos 3
+  estrelas. Carros destruídos pegam fogo e explodem.
+- **A polícia atira de volta** com 3 estrelas ou mais, e nesse nível demora mais
+  para prender.
+- **Vida e colete:** barras verde e azul embaixo do minimapa. Se a vida zerar,
+  você vai para o hospital (paga 10% e perde as estrelas). Preso, você perde
+  as armas.
+- **Celular (Tab):**
+  - **Contatos:** Rui passa o próximo trabalho; **Táxi** (R$ 40) leva você a
+    pé pela cidade; **Mecânico** (R$ 100) traz seu carro consertado;
+    **Advogado** limpa a Ficha (R$ 300) ou tira 1 estrela durante a busca (R$ 800).
+  - **Mensagens** do Rui, **GPS** com destino em roxo no mapa e **Carteira**.
 
 ## Abrir e jogar
 
@@ -24,6 +44,9 @@ qualquer PC e também permite exportar para navegador e celular depois.
 | Entrar, sair ou roubar carro | E | Y / △ |
 | Correr (a pé) | Shift | A / ✕ |
 | Freio de mão | Espaço | RB / R1 |
+| Mirar · atirar | botão direito · botão esquerdo | LB · RB |
+| Trocar de arma | Q, rodinha ou 1 a 4 | direcional ← → |
+| Celular | Tab | direcional ↑ |
 | Mapa · buzina · pausa · som | M · H · Esc · N | Back · L3 · Start |
 
 O progresso (dinheiro, missões, roupa) fica salvo em
@@ -52,6 +75,9 @@ scripts/
   pedestres.gd         pedestres, fuga, atropelamento, testemunhas
   policia.gd           estrelas, Ficha, perseguição, busca, bloqueios, helicóptero
   missoes.gd           as 3 missões
+  armas.gd             armas, tiros, efeitos, explosões, polícia atirando
+  celular.gd           celular: contatos, mensagens, GPS, carteira
+  loja_ui.gd           telas do Mercado e do Arsenal
   hud.gd               HUD, minimapa e mapa grande
   interface.gd         tela inicial e pausa
   camera_jogo.gd       câmera em 3ª pessoa
@@ -70,6 +96,8 @@ jogo, a aba **Remoto** da árvore de cenas mostra tudo o que foi criado.
 ```bash
 godot --headless --path game/godot -- --teste=basico       # missões, oficina, roupa, testemunha, prisão
 godot --headless --path game/godot -- --teste=perseguicao  # 4 estrelas, helicóptero, bloqueio, pregos
+godot --headless --path game/godot -- --teste=interacoes   # celular, táxi, Arsenal, tiros, hospital, assalto
+godot --headless --path game/godot -- --teste=renascer     # sem prisão em ciclo ao renascer
 PB_FOTOS=/tmp/fotos godot --path game/godot -- --teste=fotos  # tudo + capturas de tela
 ```
 

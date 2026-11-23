@@ -25,6 +25,16 @@ var interface: Interface
 var audio: AudioJogo
 var entrada: Entrada
 var camera: CameraJogo
+var armas: Armas
+var celular: Celular
+var loja_ui: LojaUI
+var ui_aberta := ""  # "", "celular" ou "loja"
+var cena_hospital := 0.0
+var destino = null  # Vector2 marcado no GPS do celular
+var marcador_destino: Node3D
+var mensagens: Array = []  # {de, texto, lida}
+var lojas_roubadas := {}  # id da loja -> tempo em que o caixa volta a ter dinheiro
+var estat := {"prisoes": 0, "mortes": 0}
 var sol: DirectionalLight3D
 var tempo := 0.0
 var dinheiro := 200.0
@@ -125,6 +135,19 @@ func _carregar() -> void:
 	policia = Policia.new(self)
 	missoes = Missoes.new(self)
 	missoes.feitas = mini(salvo.get_value("jogo", "missoes", 0), missoes.lista.size())
+	armas = Armas.new(self)
+	armas.preparar_modelo(jogador)
+	var inv: Dictionary = salvo.get_value("jogo", "armas", {"punho": 0})
+	for arma in inv:
+		armas.inventario[arma] = inv[arma]
+	jogador.colete = salvo.get_value("jogo", "colete", 0.0)
+	celular = Celular.new(self)
+	add_child(celular)
+	loja_ui = LojaUI.new(self)
+	add_child(loja_ui)
+	marcador_destino = missoes._criar_marcador(Color("#b07cff"))
+	if missoes.feitas == 0:
+		nova_mensagem("Rui", "Bem-vindo de volta a Porto Brasa. Tem trabalho pra você: vai até o marcador amarelo do lado da casa. Se precisar, me chama no celular (Tab).", false)
 
 	# carros estacionados (pegar e crime) e o carro da casa segura (e seu)
 	for e in mapa.estacionados:
@@ -157,7 +180,93 @@ func salvar() -> void:
 	c.set_value("jogo", "dinheiro", dinheiro)
 	c.set_value("jogo", "roupa", jogador.roupa_id)
 	c.set_value("jogo", "missoes", missoes.feitas)
+	c.set_value("jogo", "armas", armas.inventario)
+	c.set_value("jogo", "colete", jogador.colete)
 	c.save(ARQUIVO_SALVO)
+
+
+func nova_mensagem(de: String, texto: String, avisar: bool = true) -> void:
+	mensagens.append({"de": de, "texto": texto, "lida": false})
+	if avisar:
+		hud.mensagem("Nova mensagem de %s (Tab abre o celular)." % de, 3.0)
+		audio.tocar("notificacao")
+
+
+func abrir_ui(nome: String) -> void:
+	if ui_aberta == "celular" and nome == "loja":
+		celular.raiz.visible = false
+	ui_aberta = nome
+	entrada.apertadas.clear()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+
+func fechar_ui() -> void:
+	ui_aberta = ""
+	entrada.apertadas.clear()
+	entrada.consumir_arraste()
+	if modo_teste == "" and not pausado:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+## Viagem rapida (taxi): tela escura rapida e o jogador aparece no destino.
+func viajar(p: Vector2, msg: String) -> void:
+	hud.flash.color = Color(0, 0, 0, 1)
+	var tw := hud.flash.create_tween()
+	tw.tween_interval(0.4)
+	tw.tween_property(hud.flash, "color:a", 0.0, 0.6)
+	tw.tween_callback(func(): hud.flash.color = Color(0.85, 0.05, 0.05, 0.0))
+	jogador.pos = p
+	jogador.h = 0.0
+	camera.yaw = 0.0
+	camera.pos_suave = Vector3(p.x, 6, p.y + 6)
+	hud.mensagem(msg, 2.5)
+
+
+func assaltar_loja(id: int) -> String:
+	if lojas_roubadas.get(id, -1.0) > tempo:
+		hud.mensagem("O caixa está vazio. Volte mais tarde.", 2.5)
+		return "vazio"
+	var valor := randi_range(250, 600)
+	dinheiro += valor
+	lojas_roubadas[id] = tempo + 180.0
+	var porta: Vector2 = mapa.lojas[id]["p"] if id >= 0 else jogador.pos
+	hud.mensagem("Você levou %s do caixa. A câmera de segurança gravou tudo!" % U.dinheiro(valor), 3.5)
+	audio.tocar("alerta")
+	pedestres.panico(porta, 30.0)
+	# a camera denuncia na hora: a policia sabe a roupa e onde foi
+	policia.denuncia({"tipo": "assalto", "p": porta, "estrelas": 2, "carro": null, "roupa": jogador.roupa_id})
+	return "roubou"
+
+
+func morreu() -> void:
+	if cena_hospital > 0.0 or cena_prisao > 0.0:
+		return
+	cena_hospital = 3.0
+	estat["mortes"] += 1
+	var conta := roundf(dinheiro * 0.1)
+	dinheiro -= conta
+	hud.banner("Hospitalizado", "Conta do hospital: %s. Você acorda na casa segura." % U.dinheiro(conta), 3.0)
+	missoes.falhar("Você foi parar no hospital.")
+	audio.alerta()
+
+
+func _hospital(dt: float) -> bool:
+	if cena_hospital <= 0.0:
+		return false
+	cena_hospital -= dt
+	jogador.obj.rotation.x = -PI / 2.0
+	if cena_hospital <= 0.0:
+		cena_hospital = 0.0
+		if jogador.veiculo != null:
+			jogador.sair(true)
+		jogador.pos = mapa.poi["casa"]["p"]
+		jogador.h = 0.0
+		jogador.vida = 100.0
+		jogador.caido = 0.0
+		jogador.obj.rotation.x = 0.0
+		policia.limpar()
+		salvar()
+	return true
 
 
 func crime(tipo: String, p: Vector2, estrelas: int, op: Dictionary = {}) -> void:
@@ -169,9 +278,14 @@ func evento_batida(a, b, forca: float) -> void:
 
 
 func preso() -> void:
-	if cena_prisao > 0.0:
+	if cena_prisao > 0.0 or cena_hospital > 0.0:
 		return
 	cena_prisao = 2.6
+	estat["prisoes"] += 1
+	var tinha_armas := armas.inventario.size() > 1
+	armas.confiscar()
+	if tinha_armas:
+		hud.mensagem("Suas armas foram confiscadas.", 3.0)
 	var multa := roundf(dinheiro * 0.15)
 	dinheiro -= multa
 	hud.banner("Preso", "Fiança de %s. Você volta para a casa segura." % U.dinheiro(multa), 2.6)
@@ -192,6 +306,10 @@ func _comecar() -> void:
 func _pausar() -> void:
 	if pausado or interface.inicio.visible:
 		return
+	if ui_aberta == "celular":
+		celular.fechar()
+	elif ui_aberta == "loja":
+		loja_ui.fechar()
 	pausado = true
 	interface.mostrar_pausa(true)
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -240,6 +358,13 @@ func _servicos(dt: float) -> void:
 		if prompt_atual == "" and v.velocidade() < 4.0:
 			prompt_atual = "E   sair do carro"
 		return
+	for l in mapa.lojas:
+		if jogador.pos.distance_to(l["p"]) < 2.4:
+			_entrada_loja("mercado", l["id"], "Mercado")
+			return
+	if jogador.pos.distance_to(poi["arsenal"]["p"]) < 2.6:
+		_entrada_loja("arsenal", -1, "Arsenal do Porto")
+		return
 	if jogador.pos.distance_to(poi["casa"]["p"]) < 2.6:
 		if policia.modo == "perseguicao":
 			prompt_atual = "Não dá para entrar com a polícia olhando"
@@ -256,6 +381,16 @@ func _servicos(dt: float) -> void:
 	var perto = jogador.veiculo_proximo()
 	if perto != null:
 		prompt_atual = "E   entrar no carro" if perto.do_jogador else "E   roubar o carro (crime)"
+
+
+func _entrada_loja(tipo: String, id: int, nome: String) -> void:
+	if policia.estrelas > 0:
+		prompt_atual = "O %s não atende quem está sendo procurado" % nome
+		return
+	prompt_atual = "E   entrar no %s" % nome
+	if entrada.apertou("acao"):
+		entrada.apertadas.erase("acao")
+		loja_ui.abrir(tipo, id)
 
 
 func _prisao(dt: float) -> bool:
@@ -279,12 +414,25 @@ func _prisao(dt: float) -> bool:
 
 # ------------------------------------------------------------------ laco
 func passo(dt: float) -> void:
+	if ui_aberta == "loja":
+		return  # dentro da loja o mundo para
 	tempo += dt
-	if not _prisao(dt):
-		_servicos(dt)
+	var cena := _prisao(dt) or _hospital(dt)
+	if not cena:
+		if ui_aberta == "":
+			_servicos(dt)
+		else:
+			prompt_atual = ""
 		jogador.atualizar(dt, entrada, camera.yaw)
 	else:
 		prompt_atual = ""
+	armas.atualizar(dt, entrada, not cena and ui_aberta == "")
+	if destino != null and jogador.posicao().distance_to(destino) < 8.0:
+		destino = null
+		hud.mensagem("Você chegou ao destino.", 2.0)
+	marcador_destino.visible = destino != null
+	if destino != null:
+		marcador_destino.position = U.v3(destino)
 	trafego.atualizar(dt)
 	policia.atualizar(dt)
 	Fisica.passo(self, dt)
@@ -311,11 +459,19 @@ func _process(delta: float) -> void:
 		return
 	var dt := minf(delta, 0.05)
 	if entrada.apertou("pausa"):
-		if pausado and not interface.inicio.visible:
+		if ui_aberta == "celular":
+			celular.voltar()
+		elif ui_aberta == "loja":
+			loja_ui.fechar()
+		elif pausado and not interface.inicio.visible:
 			_comecar()
 		else:
 			_pausar()
-	if entrada.apertou("mapa") and not pausado:
+	elif entrada.apertou("celular") and not pausado and ui_aberta != "loja":
+		celular.alternar()
+	elif entrada.apertou("acao") and ui_aberta == "loja":
+		loja_ui.fechar()
+	if entrada.apertou("mapa") and not pausado and ui_aberta == "":
 		hud.alternar_mapa()
 	if entrada.apertou("som"):
 		_alternar_som()

@@ -15,6 +15,18 @@ const TECLAS := {
 	"pausa": [KEY_ESCAPE, KEY_P],
 	"buzina": [KEY_H],
 	"som": [KEY_N],
+	"celular": [KEY_TAB],
+	"arma_prox": [KEY_Q],
+	"arma_1": [KEY_1],
+	"arma_2": [KEY_2],
+	"arma_3": [KEY_3],
+	"arma_4": [KEY_4],
+}
+const MOUSE := {
+	"atirar": [MOUSE_BUTTON_LEFT],
+	"mirar": [MOUSE_BUTTON_RIGHT],
+	"arma_prox": [MOUSE_BUTTON_WHEEL_DOWN],
+	"arma_ant": [MOUSE_BUTTON_WHEEL_UP],
 }
 
 var apertadas := {}
@@ -31,6 +43,13 @@ func _ready() -> void:
 			var e := InputEventKey.new()
 			e.physical_keycode = k
 			InputMap.action_add_event(acao, e)
+	for acao in MOUSE:
+		if not InputMap.has_action(acao):
+			InputMap.add_action(acao, 0.2)
+		for b in MOUSE[acao]:
+			var m := InputEventMouseButton.new()
+			m.button_index = b
+			InputMap.action_add_event(acao, m)
 	_eixo("frente", JOY_AXIS_TRIGGER_RIGHT, 1.0)
 	_eixo("tras", JOY_AXIS_TRIGGER_LEFT, 1.0)
 	_eixo("frente", JOY_AXIS_LEFT_Y, -1.0)
@@ -43,6 +62,11 @@ func _ready() -> void:
 	_botao("mapa", JOY_BUTTON_BACK)
 	_botao("pausa", JOY_BUTTON_START)
 	_botao("buzina", JOY_BUTTON_LEFT_STICK)
+	_botao("atirar", JOY_BUTTON_RIGHT_SHOULDER)
+	_botao("mirar", JOY_BUTTON_LEFT_SHOULDER)
+	_botao("celular", JOY_BUTTON_DPAD_UP)
+	_botao("arma_prox", JOY_BUTTON_DPAD_RIGHT)
+	_botao("arma_ant", JOY_BUTTON_DPAD_LEFT)
 
 
 func _eixo(acao: String, eixo: JoyAxis, valor: float) -> void:
@@ -63,7 +87,7 @@ func _input(event: InputEvent) -> void:
 		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
 			arraste += event.relative
 		return
-	for acao in TECLAS:
+	for acao in TECLAS.keys() + MOUSE.keys():
 		if event.is_action_pressed(acao, false):
 			apertadas[acao] = true
 
