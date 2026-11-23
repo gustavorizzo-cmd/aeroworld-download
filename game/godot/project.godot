@@ -1,0 +1,26 @@
+; Engine configuration file.
+; Projeto Porto Brasa (Godot 4.4+)
+
+config_version=5
+
+[application]
+
+config/name="Porto Brasa"
+config/description="Protótipo de jogo de mundo aberto: cidade, polícia com estrelas e Ficha, missões."
+run/main_scene="res://cenas/principal.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+anti_aliasing/quality/msaa_3d=2
+lights_and_shadows/directional_shadow/size=4096

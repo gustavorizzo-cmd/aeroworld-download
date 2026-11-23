@@ -1,10 +1,16 @@
 # Porto Brasa — versão 0.1 (protótipo jogável)
 
-Jogo de mundo aberto no navegador, feito com Three.js e com os modelos de
-[`assets/`](assets/README.md). Segue o escopo do protótipo definido na
-[pesquisa](../docs/pesquisa-jogo-mundo-aberto.md).
+Jogo de mundo aberto feito com os modelos de [`assets/`](assets/README.md),
+seguindo o escopo do protótipo definido na
+[pesquisa](../docs/pesquisa-jogo-mundo-aberto.md). Existe em duas versões com
+as mesmas mecânicas:
 
-## Como jogar
+| Versão | Pasta | Para quê |
+|---|---|---|
+| **Godot 4** (principal) | [`godot/`](godot/README.md) | onde o jogo vai crescer: editor visual, melhor desempenho, exporta .exe |
+| Navegador (Three.js) | `web/` | demo rápida: abre com dois cliques ou por link |
+
+## Como jogar no navegador
 
 Abra **`web/dist/porto_brasa.html`** no navegador (Chrome, Edge ou Firefox), com
 dois cliques. O arquivo é único e já traz o Three.js e todos os modelos, então
