@@ -1,0 +1,334 @@
+<title>Porto Brasa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  /* Conceito: HUD de rua ao entardecer — paineis escuros translucidos sobre a cidade,
+     laranja-brasa para o jogador, vermelho/azul so para a policia. Visual unico (escuro). */
+  :root {
+    --noite: #10161d;
+    --painel: rgba(16, 22, 29, 0.74);
+    --painel-borda: rgba(246, 239, 227, 0.14);
+    --texto: #f6efe3;
+    --texto-suave: #b9c0c7;
+    --brasa: #ff6a2b;
+    --mar: #22d3ee;
+    --ouro: #ffcc33;
+    --sirene-v: #ff2a3a;
+    --sirene-a: #3a74ff;
+    --fonte-titulo: "Bungee", "Arial Black", Impact, system-ui, sans-serif;
+    --fonte-hud: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --fonte-texto: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --raio: 10px;
+    --ml: max(14px, env(safe-area-inset-left, 0px));
+    --mr: max(14px, env(safe-area-inset-right, 0px));
+    --mt: max(12px, env(safe-area-inset-top, 0px));
+    --mb: max(12px, env(safe-area-inset-bottom, 0px));
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--noite);
+    color: var(--texto);
+    font-family: var(--fonte-texto);
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #jogo { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+
+  /* ---------- tela inicial */
+  .tela {
+    position: fixed; inset: 0; z-index: 30;
+    display: grid; place-items: center;
+    padding: var(--mt) var(--mr) var(--mb) var(--ml);
+    background: linear-gradient(180deg, rgba(16,22,29,0.35) 0%, rgba(16,22,29,0.82) 55%, rgba(16,22,29,0.95) 100%);
+    overflow-y: auto;
+  }
+  .cartaz { width: min(680px, 100%); display: grid; gap: 22px; }
+  .cartaz h1 {
+    margin: 0;
+    font-family: var(--fonte-titulo);
+    font-weight: 400;
+    font-size: clamp(44px, 11vw, 92px);
+    line-height: 0.92;
+    letter-spacing: 0.01em;
+    color: var(--texto);
+    text-shadow: 0 4px 0 var(--brasa), 0 10px 30px rgba(0,0,0,0.45);
+    text-wrap: balance;
+  }
+  .cartaz h1 span { color: var(--brasa); text-shadow: 0 4px 0 #7a2a0b, 0 10px 30px rgba(0,0,0,0.45); }
+  .linha-versao {
+    font-family: var(--fonte-hud); font-weight: 600; font-size: 15px;
+    text-transform: uppercase; letter-spacing: 0.14em; color: var(--ouro);
+  }
+  .cartaz p { margin: 0; font-size: 17px; line-height: 1.5; color: var(--texto-suave); max-width: 60ch; }
+  .controles {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 22px;
+    padding: 16px 18px; border-radius: var(--raio);
+    background: var(--painel); border: 1px solid var(--painel-borda);
+    font-family: var(--fonte-hud); font-size: 17px;
+  }
+  .controles h2 {
+    grid-column: 1 / -1; margin: 0 0 4px; font-family: var(--fonte-hud); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--texto-suave);
+  }
+  .controles div { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .controles div.texto { display: block; line-height: 1.4; }
+  kbd {
+    display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 7px;
+    border-radius: 6px; background: var(--texto); color: var(--noite);
+    font-family: var(--fonte-hud); font-weight: 700; font-size: 14px;
+    box-shadow: 0 3px 0 #8f877b;
+  }
+  .so-toque { display: none; }
+  @media (pointer: coarse) { .so-teclado { display: none; } .so-toque { display: block; } }
+  .acoes { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  button {
+    font-family: var(--fonte-hud); font-weight: 700; font-size: 20px; letter-spacing: 0.06em;
+    text-transform: uppercase; border: 0; border-radius: var(--raio); cursor: pointer;
+    padding: 14px 30px; background: var(--brasa); color: var(--noite);
+    box-shadow: 0 4px 0 #9a3510;
+  }
+  button:hover { filter: brightness(1.08); }
+  button:focus-visible { outline: 3px solid var(--ouro); outline-offset: 3px; }
+  button:disabled { background: #5d646c; box-shadow: 0 4px 0 #3a3f45; cursor: progress; color: var(--texto); }
+  button.secundario { background: transparent; color: var(--texto); box-shadow: inset 0 0 0 2px var(--painel-borda); font-size: 16px; padding: 12px 20px; }
+  #carga { display: grid; gap: 6px; font-family: var(--fonte-hud); font-size: 15px; color: var(--texto-suave); }
+  .trilho { height: 6px; border-radius: 3px; background: rgba(246,239,227,0.12); overflow: hidden; }
+  #carga-barra { height: 100%; width: 0; background: var(--brasa); transition: width 0.2s; }
+
+  /* ---------- HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: var(--fonte-hud); }
+  .painel { background: var(--painel); border: 1px solid var(--painel-borda); border-radius: var(--raio); backdrop-filter: blur(4px); }
+  #objetivo {
+    position: absolute; top: var(--mt); left: var(--ml); max-width: min(380px, 42vw);
+    padding: 10px 14px; display: grid; gap: 2px;
+  }
+  #obj-titulo { font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ouro); }
+  #obj-texto { font-family: var(--fonte-texto); font-size: 15px; line-height: 1.35; }
+  #cronometro {
+    justify-self: start; margin-top: 6px; font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--texto);
+  }
+  #cronometro.urgente { color: var(--sirene-v); }
+  #canto { position: absolute; top: var(--mt); right: var(--mr); display: grid; justify-items: end; gap: 8px; }
+  #dinheiro { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; color: #8ee07a; text-shadow: 0 2px 0 rgba(0,0,0,0.55); }
+  #estrelas { display: flex; gap: 4px; }
+  .estrela svg { width: 30px; height: 30px; display: block; }
+  .estrela path { fill: rgba(246,239,227,0.12); stroke: rgba(246,239,227,0.45); stroke-width: 1.5; }
+  .estrela.ativa path { fill: var(--texto); stroke: #000; }
+  #estrelas[data-modo="perseguicao"] .estrela.ativa path { fill: var(--sirene-v); }
+  #estrelas[data-modo="perseguicao"] .estrela.ativa.alt path { fill: var(--sirene-a); }
+  #estrelas[data-modo="busca"] .estrela.ativa path { fill: #8d96a0; }
+  #ficha { display: flex; gap: 6px; align-items: center; }
+  #ficha .rotulo { font-size: 12px; letter-spacing: 0.14em; color: var(--texto-suave); text-transform: uppercase; margin-right: 2px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    border: 1px solid var(--painel-borda); background: var(--painel); color: rgba(246,239,227,0.35);
+  }
+  .chip svg { width: 15px; height: 15px; fill: currentColor; }
+  .chip[data-estado="conhecido"] { color: var(--ouro); border-color: rgba(255,204,51,0.5); }
+  .chip[data-estado="perigo"] { color: #fff; background: #b3121f; border-color: var(--sirene-v); animation: pulso 0.9s infinite; }
+  @keyframes pulso { 50% { background: #5a0910; } }
+  #aviso-busca { font-size: 15px; font-weight: 600; color: var(--texto); padding: 5px 10px; max-width: 260px; text-align: right; }
+  #minimapa {
+    position: absolute; left: var(--ml); bottom: var(--mb); width: 190px; height: 190px;
+    border-radius: 50%; box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  }
+  #distrito {
+    position: absolute; left: calc(var(--ml) + 205px); bottom: calc(var(--mb) + 8px);
+    font-family: var(--fonte-titulo); font-size: 22px; color: var(--texto); opacity: 0;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.5);
+  }
+  #distrito.mostra { animation: distrito 3.2s ease forwards; }
+  @keyframes distrito { 0% { opacity: 0; transform: translateY(6px); } 12%, 75% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  #velocimetro { position: absolute; right: var(--mr); bottom: var(--mb); padding: 10px 16px; min-width: 150px; display: grid; gap: 4px; justify-items: end; }
+  #velo-num { font-size: 46px; line-height: 0.9; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #velo-un { font-size: 13px; letter-spacing: 0.16em; color: var(--texto-suave); }
+  .lataria { width: 100%; display: grid; gap: 3px; font-size: 12px; letter-spacing: 0.14em; color: var(--texto-suave); text-transform: uppercase; }
+  #lataria-barra { height: 100%; background: #8ee07a; border-radius: 3px; }
+  #lataria-barra[data-estado="medio"] { background: var(--ouro); }
+  #lataria-barra[data-estado="ruim"] { background: var(--sirene-v); }
+  #mensagens { position: absolute; top: calc(var(--mt) + 4px); left: 50%; transform: translateX(-50%); display: grid; gap: 6px; justify-items: center; width: min(520px, 60vw); }
+  .msg {
+    padding: 8px 14px; border-radius: var(--raio); background: var(--painel); border: 1px solid var(--painel-borda);
+    font-family: var(--fonte-texto); font-size: 15px; font-weight: 500; text-align: center;
+    animation: entra 0.25s ease; transition: opacity 0.4s;
+  }
+  .msg.sai { opacity: 0; }
+  @keyframes entra { from { opacity: 0; transform: translateY(-6px); } }
+  #ligacao, #prisao {
+    position: absolute; left: 50%; top: 34%; transform: translateX(-50%);
+    padding: 8px 16px; font-size: 18px; font-weight: 700; letter-spacing: 0.04em;
+  }
+  #ligacao { color: var(--ouro); border-color: rgba(255,204,51,0.5); }
+  #prisao { top: 40%; width: 260px; display: grid; gap: 6px; text-align: center; color: #fff; border-color: var(--sirene-v); }
+  #prisao-barra { height: 100%; width: 0; background: var(--sirene-v); }
+  #prompt {
+    position: absolute; left: 50%; bottom: calc(var(--mb) + 18px); transform: translateX(-50%);
+    padding: 8px 16px; font-size: 18px; font-weight: 600; letter-spacing: 0.04em; white-space: nowrap;
+  }
+  #banner {
+    position: absolute; left: 50%; top: 22%; transform: translateX(-50%); text-align: center;
+    display: grid; gap: 8px; width: min(640px, 92vw); transition: opacity 0.4s;
+  }
+  #banner.sai { opacity: 0; }
+  #banner-titulo { font-family: var(--fonte-titulo); font-size: clamp(30px, 6vw, 54px); color: var(--ouro); text-shadow: 0 4px 0 rgba(0,0,0,0.55); }
+  #banner-sub { font-family: var(--fonte-texto); font-size: 18px; font-weight: 600; text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
+
+  /* ---------- mapa grande */
+  #mapa-grande { position: fixed; inset: 0; z-index: 20; background: rgba(16,22,29,0.92); padding: var(--mt) var(--mr) var(--mb) var(--ml); display: grid; grid-template-rows: auto 1fr; gap: 10px; }
+  #mapa-grande header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-family: var(--fonte-hud); }
+  #mapa-grande h2 { margin: 0; font-family: var(--fonte-titulo); font-weight: 400; font-size: 24px; }
+  .legenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: 15px; color: var(--texto-suave); }
+  .legenda i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  #mapa-canvas { width: 100%; height: 100%; min-height: 0; border-radius: var(--raio); }
+
+  /* ---------- botoes do HUD e toque */
+  .botoes-topo { display: flex; gap: 6px; pointer-events: auto; }
+  .botoes-topo button { padding: 6px 10px; font-size: 13px; box-shadow: none; background: var(--painel); color: var(--texto); border: 1px solid var(--painel-borda); }
+  #toque { position: fixed; inset: 0; z-index: 11; pointer-events: none; }
+  #joystick {
+    position: absolute; left: calc(var(--ml) + 10px); bottom: calc(var(--mb) + 14px); width: 130px; height: 130px; border-radius: 50%;
+    background: rgba(16,22,29,0.4); border: 2px solid rgba(246,239,227,0.3); pointer-events: auto; touch-action: none;
+    display: grid; place-items: center;
+  }
+  #joystick-pino { width: 58px; height: 58px; border-radius: 50%; background: rgba(246,239,227,0.75); pointer-events: none; }
+  .botoes-toque { position: absolute; right: var(--mr); bottom: calc(var(--mb) + 14px); display: grid; grid-template-columns: repeat(2, 64px); gap: 10px; pointer-events: auto; }
+  .botoes-toque button { width: 64px; height: 64px; padding: 0; border-radius: 50%; font-size: 15px; touch-action: none; }
+  #t-freio { background: var(--texto); box-shadow: 0 4px 0 #8f877b; }
+  #t-buzina { background: var(--painel); color: var(--texto); box-shadow: none; border: 1px solid var(--painel-borda); }
+
+  /* telas de toque e estreitas: minimapa vai para o topo, controles de toque embaixo */
+  @media (pointer: coarse), (max-width: 720px) {
+    #minimapa { top: var(--mt); bottom: auto; width: 116px; height: 116px; }
+    #objetivo { left: calc(var(--ml) + 126px); max-width: calc(100vw - var(--ml) - var(--mr) - 330px); min-width: 180px; padding: 8px 10px; }
+    #obj-texto { font-size: 13px; }
+    #distrito { left: 50%; transform: translateX(-50%); bottom: auto; top: 30%; }
+    #dinheiro { font-size: 22px; }
+    .estrela svg { width: 22px; height: 22px; }
+    #mensagens { top: calc(var(--mt) + 84px); width: min(440px, 52vw); }
+    .msg { font-size: 13px; }
+    #velocimetro { right: calc(var(--mr) + 150px); bottom: calc(var(--mb) + 14px); min-width: 110px; padding: 6px 10px; }
+    #velo-num { font-size: 32px; }
+    #prompt { bottom: calc(var(--mb) + 100px); font-size: 15px; }
+  }
+  /* retrato: objetivo desce para baixo do minimapa */
+  @media (max-width: 720px) {
+    #objetivo { top: calc(var(--mt) + 126px); left: var(--ml); min-width: 0; max-width: min(64vw, 360px); }
+    #mensagens { top: calc(var(--mt) + 210px); width: 88vw; }
+    #velocimetro { right: var(--mr); bottom: calc(var(--mb) + 170px); }
+    #prompt { bottom: calc(var(--mb) + 160px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chip[data-estado="perigo"], #distrito.mostra, .msg { animation: none; }
+    #distrito.mostra { opacity: 1; }
+  }
+</style>
+
+<canvas id="jogo" tabindex="0" aria-label="Porto Brasa: cidade em 3D"></canvas>
+
+<div id="hud" hidden>
+  <canvas id="minimapa" width="232" height="232" aria-label="Minimapa"></canvas>
+  <div id="distrito"></div>
+  <section id="objetivo" class="painel" aria-live="polite">
+    <div id="obj-titulo">Próxima missão</div>
+    <div id="obj-texto"></div>
+    <div id="cronometro" hidden></div>
+  </section>
+  <div id="canto">
+    <div id="dinheiro">R$ 0</div>
+    <div id="estrelas" data-modo="limpo" aria-label="Nível de procurado">
+      <span class="estrela"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span>
+      <span class="estrela"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span>
+      <span class="estrela"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span>
+      <span class="estrela"><svg viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg></span>
+    </div>
+    <div id="ficha" aria-label="Ficha: o que a polícia sabe">
+      <span class="rotulo">Ficha</span>
+      <span class="chip" id="ficha-carro" data-estado="limpo"><svg viewBox="0 0 24 24"><path d="M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11h1a1 1 0 0 1 1 1v5h-2v1.5a1.5 1.5 0 0 1-3 0V17H8v1.5a1.5 1.5 0 0 1-3 0V17H3v-5a1 1 0 0 1 1-1zm2.2 0h9.6l-1.1-3H8.3zM6.5 15a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6zm11 0a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6z"/></svg>Carro</span>
+      <span class="chip" id="ficha-roupa" data-estado="limpo"><svg viewBox="0 0 24 24"><path d="M8.5 3L3 6l2 4.2 2-.9V21h10V9.3l2 .9L21 6l-5.5-3a3.5 3.5 0 0 1-7 0z"/></svg>Roupa</span>
+    </div>
+    <div class="botoes-topo">
+      <button id="btn-mapa" type="button">Mapa</button>
+      <button id="btn-pausa" type="button">Pausa</button>
+    </div>
+    <div id="aviso-busca" class="painel" hidden></div>
+  </div>
+  <div id="mensagens" aria-live="polite"></div>
+  <div id="ligacao" class="painel" hidden></div>
+  <div id="prisao" class="painel" hidden>Sendo preso… pare de resistir ou fuja!<div class="trilho"><div id="prisao-barra"></div></div></div>
+  <div id="banner" hidden><div id="banner-titulo"></div><div id="banner-sub"></div></div>
+  <div id="prompt" class="painel" hidden></div>
+  <div id="velocimetro" class="painel" hidden>
+    <div><span id="velo-num">0</span> <span id="velo-un">KM/H</span></div>
+    <div class="lataria">Lataria<div class="trilho"><div id="lataria-barra"></div></div></div>
+  </div>
+</div>
+
+<div id="toque" hidden>
+  <div id="joystick"><div id="joystick-pino"></div></div>
+  <div class="botoes-toque">
+    <button id="t-buzina" type="button">Buzina</button>
+    <button id="t-entrar" type="button">E</button>
+    <span></span>
+    <button id="t-freio" type="button">Freio</button>
+  </div>
+</div>
+
+<div id="mapa-grande" hidden>
+  <header>
+    <h2>Porto Brasa</h2>
+    <div class="legenda">
+      <span><i style="background:#ff6a2b"></i>Você</span>
+      <span><i style="background:#ffcc33"></i>Nova missão</span>
+      <span><i style="background:#22d3ee"></i>Objetivo</span>
+      <span><i style="background:#7fd1ff"></i>Casa segura</span>
+      <span><i style="background:#ffb057"></i>Oficina de pintura</span>
+      <span><i style="background:#ff2a3a"></i>Área de busca</span>
+    </div>
+    <button id="fechar-mapa" type="button" class="secundario" style="pointer-events:auto">Fechar (M)</button>
+  </header>
+  <canvas id="mapa-canvas"></canvas>
+</div>
+
+<div id="pausa" class="tela" hidden>
+  <div class="cartaz">
+    <h1>Pausa</h1>
+    <div class="acoes">
+      <button id="continuar" type="button">Continuar</button>
+      <button id="som" type="button" class="secundario">Som: ligado</button>
+      <button id="recomecar" type="button" class="secundario">Recomeçar missões</button>
+    </div>
+  </div>
+</div>
+
+<div id="inicio" class="tela">
+  <div class="cartaz">
+    <div class="linha-versao">Versão 0.1 · protótipo jogável</div>
+    <h1>Porto<br><span>Brasa</span></h1>
+    <p>Uma cidade litorânea, três serviços e uma polícia que lembra de você. Crimes só viram estrelas se alguém vir. Troque de carro, pinte a lataria ou mude de roupa para limpar sua Ficha.</p>
+    <div class="controles so-teclado">
+      <h2>Controles</h2>
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar e dirigir</div>
+      <div><kbd>E</kbd> entrar, sair, roubar carro</div>
+      <div><kbd>Shift</kbd> correr a pé</div>
+      <div><kbd>Espaço</kbd> freio de mão</div>
+      <div>Arraste o mouse para girar a câmera</div>
+      <div><kbd>M</kbd> mapa · <kbd>H</kbd> buzina · <kbd>P</kbd> pausa</div>
+    </div>
+    <div class="controles so-toque">
+      <h2>Controles de toque</h2>
+      <div class="texto">Joystick à esquerda: andar e dirigir. Arraste no lado direito da tela para girar a câmera. O botão <strong>E</strong> entra e sai do carro; <strong>Freio</strong> é o freio de mão.</div>
+    </div>
+    <div id="carga"><span id="carga-texto">Carregando…</span><div class="trilho"><div id="carga-barra"></div></div></div>
+    <div class="acoes"><button id="jogar" type="button" disabled>Carregando…</button></div>
+  </div>
+</div>
+
+<script>/*SCRIPT*/</script>

@@ -1,0 +1,14 @@
+{
+  "name": "porto-brasa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Porto Brasa - prototipo de jogo de mundo aberto (Three.js)",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.0",
+    "three": "0.170.0"
+  }
+}

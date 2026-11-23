@@ -1,2 +1,4 @@
 *.blend1
 __pycache__/
+node_modules/
+web/dist/pagina.html
