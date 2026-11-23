@@ -1,5 +1,6 @@
 import { BORDA, N, nodoX, DISTRITOS } from './mapa.js';
 import { formatarDinheiro, dist } from './util.js';
+import { TIPOS } from './armas.js';
 
 const $ = (id) => document.getElementById(id);
 const MUNDO = { minX: -230, maxX: 260, minZ: -230, maxZ: 230 }; // area desenhada no mapa
@@ -31,7 +32,13 @@ export class Hud {
       distrito: $('distrito'),
       busca: $('aviso-busca'),
       mapaGrande: $('mapa-grande'),
+      vida: $('barra-vida'),
+      colete: $('barra-colete'),
+      arma: $('arma'),
+      mira: $('mira'),
+      flash: $('flash'),
     };
+    this.historico = []; // usado pelos testes
     this.mini = $('minimapa');
     this.ctx = this.mini.getContext('2d');
     this.grande = $('mapa-canvas');
@@ -81,6 +88,7 @@ export class Hud {
 
   // ---------- mensagens
   mensagem(texto, seg = 2.5) {
+    this.historico.push(texto);
     const d = document.createElement('div');
     d.className = 'msg';
     d.textContent = texto;
@@ -98,6 +106,7 @@ export class Hud {
   }
 
   banner(titulo, sub, seg = 3) {
+    this.historico.push(`[BANNER] ${titulo} | ${sub || ''}`);
     this.el.bannerTit.textContent = titulo;
     this.el.bannerSub.textContent = sub || '';
     this.el.banner.hidden = false;
@@ -115,6 +124,13 @@ export class Hud {
     const s = Math.max(0, Math.ceil(seg));
     c.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     c.classList.toggle('urgente', s <= 15);
+  }
+
+  dano() {
+    const f = this.el.flash;
+    f.classList.remove('dano');
+    void f.offsetWidth;
+    f.classList.add('dano');
   }
 
   alternarMapa() {
@@ -162,7 +178,22 @@ export class Hud {
 
     // prisao
     this.el.prisao.hidden = p.prendendo <= 0.05;
-    this.el.prisaoBarra.style.width = Math.min(100, (p.prendendo / 2.5) * 100) + '%';
+    this.el.prisaoBarra.style.width = Math.min(100, (p.prendendo / p.limitePrisao()) * 100) + '%';
+
+    // vida, colete, arma e mira
+    this.el.vida.style.width = j.vida + '%';
+    this.el.colete.style.width = j.colete + '%';
+    const armas = jogo.armas;
+    const aPe = !j.veiculo;
+    this.el.arma.hidden = !aPe;
+    if (aPe) this.el.arma.textContent = TIPOS[armas.atual].nome.toUpperCase() + (armas.armado() ? `   ${armas.municao()}` : '');
+    this.el.mira.hidden = !(aPe && (armas.armado() || armas.mirando) && !jogo.uiAberta);
+    this.el.mira.classList.toggle('fechada', armas.mirando);
+    document.body.classList.toggle('armado', aPe && armas.armado());
+    document.body.classList.toggle('a-pe', aPe);
+    this.tMirar = this.tMirar || $('t-mirar');
+    this.tMirar.classList.toggle('ativo', armas.mirarToque);
+    document.body.classList.toggle('mirando', armas.mirando);
 
     // testemunha ligando
     const lig = jogo.pedestres.lista.find((x) => x.estado === 'ligando');
@@ -226,6 +257,20 @@ export class Hud {
       g.strokeStyle = '#10161d';
       g.stroke();
     }
+    // destino marcado no celular
+    if (jogo.destino) {
+      const pts = jogo.mapa.rotaGPS(j.px, j.pz, jogo.destino.x, jogo.destino.z);
+      g.beginPath();
+      pts.forEach((q, i) => (i ? g.lineTo(X(q.x), Z(q.z)) : g.moveTo(X(q.x), Z(q.z))));
+      g.lineWidth = Math.max(3, 4 * s);
+      g.strokeStyle = '#b07cff';
+      g.lineJoin = 'round';
+      g.stroke();
+      g.beginPath();
+      g.arc(X(jogo.destino.x), Z(jogo.destino.z), Math.max(5, 6 * s), 0, Math.PI * 2);
+      g.fillStyle = '#b07cff';
+      g.fill();
+    }
     // pontos fixos
     const poi = jogo.mapa.poi;
     const icone = (q, letra, cor) => {
@@ -242,6 +287,8 @@ export class Hud {
     };
     icone(poi.casa, 'C', '#7fd1ff');
     icone(poi.oficina, 'P', '#ffb057');
+    icone(poi.arsenal, 'A', '#ff6b6b');
+    for (const l of jogo.mapa.lojas) icone(l, 'M', '#7be38a');
     // viaturas so aparecem se estiverem perto e a vista (sem radar de policia)
     for (const v of jogo.veiculos) {
       if (!v.policia || !v.ia || v.ia.tipo === 'trafego') continue;

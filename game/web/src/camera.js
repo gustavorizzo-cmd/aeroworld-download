@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { angDiff, clamp, suavizar, frente } from './util.js';
+import { angDiff, clamp, suavizar, frente, direita } from './util.js';
 
 export class CameraJogo {
   constructor(cam, mapa) {
@@ -15,7 +15,13 @@ export class CameraJogo {
 
   atualizar(dt, jogo, entrada) {
     const j = jogo.jogador;
-    const a = entrada.consumirArraste();
+    let a = entrada.consumirArraste();
+    if (jogo.uiAberta) a = { dx: 0, dy: 0 };
+    const sens = entrada.travado ? 0.6 : 1;
+    if (jogo.armas.mirando) return this.mirar(dt, jogo, a, sens);
+    this.miraPitch = suavizar(this.miraPitch || 0, 0, 6, dt);
+    a.dx *= sens;
+    a.dy *= sens;
     if (a.dx || a.dy) {
       this.yaw -= a.dx * 0.006;
       this.pitch = clamp(this.pitch + a.dy * 0.004, 0.05, 1.2);
@@ -61,5 +67,24 @@ export class CameraJogo {
       this.cam.fov = suavizar(this.cam.fov, fovAlvo, 3, dt);
       this.cam.updateProjectionMatrix();
     }
+  }
+
+  // Camera por cima do ombro direito; o centro da tela e para onde o tiro vai.
+  mirar(dt, jogo, a, sens) {
+    const j = jogo.jogador;
+    this.yaw -= a.dx * 0.004 * sens;
+    this.miraPitch = clamp((this.miraPitch || 0) - a.dy * 0.004 * sens, -0.6, 0.7);
+    this.tArraste = jogo.tempo;
+    this.alvo.set(j.x, j.y + 1.55, j.z);
+    const cp = Math.cos(this.miraPitch);
+    const f3 = new THREE.Vector3(-Math.sin(this.yaw) * cp, Math.sin(this.miraPitch), -Math.cos(this.yaw) * cp);
+    const r = direita(this.yaw);
+    const desejada = this.alvo.clone().add(new THREE.Vector3(r.x * 0.75, 0.15, r.z * 0.75)).addScaledVector(f3, -2.4);
+    this.pos.lerp(desejada, 1 - Math.exp(-20 * dt));
+    this.cam.position.copy(this.pos);
+    this.cam.lookAt(this.cam.position.clone().add(f3));
+    this.cam.fov = suavizar(this.cam.fov, 50, 10, dt);
+    this.cam.updateProjectionMatrix();
+    this.pitch = 0.3;
   }
 }

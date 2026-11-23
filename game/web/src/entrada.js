@@ -1,23 +1,56 @@
-// Teclado, arrastar para girar a camera e controles de toque.
+// Teclado, mouse (travado na janela quando possivel), rodinha e controles de toque.
+// Botoes do mouse viram os codigos 'Mouse0' (esquerdo) e 'Mouse2' (direito);
+// a rodinha vira 'WheelUp'/'WheelDown'.
 export class Entrada {
   constructor(canvas) {
+    this.canvas = canvas;
     this.teclas = new Set();
     this.apertadas = new Set(); // so no quadro em que a tecla desceu
     this.arraste = { dx: 0, dy: 0, ativo: false, ultimo: 0 };
     this.toque = { x: 0, y: 0, ativo: false };
-    this.botoesToque = { freioMao: false };
+    this.botoesToque = { freioMao: false, atirar: false };
+    this.travado = false;
+    this.aoPerderTrava = null;
 
-    addEventListener('keydown', (e) => {
-      const k = e.code;
+    const descer = (k) => {
       if (!this.teclas.has(k)) this.apertadas.add(k);
       this.teclas.add(k);
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k)) e.preventDefault();
+    };
+    addEventListener('keydown', (e) => {
+      descer(e.code);
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
     });
     addEventListener('keyup', (e) => this.teclas.delete(e.code));
     addEventListener('blur', () => this.teclas.clear());
 
+    // mouse: botoes e rodinha
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 0 || e.button === 2) descer('Mouse' + e.button);
+    });
+    addEventListener('mouseup', (e) => this.teclas.delete('Mouse' + e.button));
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    canvas.addEventListener('wheel', (e) => {
+      this.apertadas.add(e.deltaY > 0 ? 'WheelDown' : 'WheelUp');
+      e.preventDefault();
+    }, { passive: false });
+
+    // mouse travado: o movimento gira a camera sem precisar arrastar
+    document.addEventListener('pointerlockchange', () => {
+      const antes = this.travado;
+      this.travado = document.pointerLockElement === canvas;
+      if (antes && !this.travado && this.aoPerderTrava) this.aoPerderTrava();
+    });
+    addEventListener('mousemove', (e) => {
+      if (!this.travado) return;
+      this.arraste.dx += e.movementX;
+      this.arraste.dy += e.movementY;
+      this.arraste.ultimo = performance.now();
+    });
+
+    // arrastar (toque no lado direito da tela, ou mouse sem trava)
     let px = 0, py = 0, pid = null;
     canvas.addEventListener('pointerdown', (e) => {
+      if (this.travado) return;
       if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45) return;
       pid = e.pointerId;
       px = e.clientX;
@@ -42,7 +75,22 @@ export class Entrada {
     addEventListener('pointercancel', soltar);
   }
 
-  // Liga o joystick virtual e os botoes de toque (criados no HTML).
+  travar() {
+    if (matchMedia('(pointer: coarse)').matches) return;
+    try {
+      const r = this.canvas.requestPointerLock?.();
+      if (r && r.catch) r.catch(() => {});
+    } catch {
+      /* sem trava: continua com arrastar */
+    }
+  }
+
+  destravar() {
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  // Liga o joystick virtual e os botoes de toque.
+  // botoes: [elemento, codigo ao tocar (ou null), nome enquanto segura (ou null)]
   ligarToque(joy, pino, botoes) {
     let id = null, cx = 0, cy = 0;
     const raio = 50;
@@ -78,12 +126,14 @@ export class Entrada {
     for (const [el, codigo, segurar] of botoes) {
       el.addEventListener('pointerdown', (e) => {
         e.preventDefault();
+        el.setPointerCapture?.(e.pointerId);
+        if (codigo) this.apertadas.add(codigo);
         if (segurar) this.botoesToque[segurar] = true;
-        else this.apertadas.add(codigo);
       });
       const solta = () => segurar && (this.botoesToque[segurar] = false);
       el.addEventListener('pointerup', solta);
-      el.addEventListener('pointerleave', solta);
+      el.addEventListener('pointercancel', solta);
+      el.addEventListener('lostpointercapture', solta);
     }
   }
 
@@ -113,6 +163,10 @@ export class Entrada {
     return this.tem('Space') || this.botoesToque.freioMao;
   }
 
+  atirando() {
+    return this.tem('Mouse0') || this.botoesToque.atirar;
+  }
+
   correr() {
     return this.tem('ShiftLeft', 'ShiftRight') || (this.toque.ativo && Math.hypot(this.toque.x, this.toque.y) > 0.95);
   }
@@ -122,6 +176,14 @@ export class Entrada {
     this.arraste.dx = 0;
     this.arraste.dy = 0;
     return a;
+  }
+
+  limpar() {
+    this.apertadas.clear();
+    this.teclas.delete('Mouse0');
+    this.teclas.delete('Mouse2');
+    this.botoesToque.atirar = false;
+    this.consumirArraste();
   }
 
   fimDoQuadro() {

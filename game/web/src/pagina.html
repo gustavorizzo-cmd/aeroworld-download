@@ -199,10 +199,75 @@
     display: grid; place-items: center;
   }
   #joystick-pino { width: 58px; height: 58px; border-radius: 50%; background: rgba(246,239,227,0.75); pointer-events: none; }
-  .botoes-toque { position: absolute; right: var(--mr); bottom: calc(var(--mb) + 14px); display: grid; grid-template-columns: repeat(2, 64px); gap: 10px; pointer-events: auto; }
-  .botoes-toque button { width: 64px; height: 64px; padding: 0; border-radius: 50%; font-size: 15px; touch-action: none; }
+  .botoes-toque {
+    position: absolute; right: var(--mr); bottom: calc(var(--mb) + 14px); display: grid;
+    grid-template-columns: repeat(3, 66px); grid-template-rows: 66px 80px; gap: 10px; align-items: end; justify-items: center;
+    pointer-events: auto;
+  }
+  .botoes-toque button { width: 64px; height: 64px; padding: 0; border-radius: 50%; font-size: 14px; touch-action: none; }
+  #t-celular { grid-area: 1 / 1; background: var(--painel); color: var(--texto); box-shadow: none; border: 1px solid var(--painel-borda); }
+  #t-arma, #t-buzina { grid-area: 1 / 2; background: var(--painel); color: var(--texto); box-shadow: none; border: 1px solid var(--painel-borda); }
+  #t-mirar { grid-area: 2 / 1; background: var(--texto); box-shadow: 0 4px 0 #8f877b; }
+  #t-mirar.ativo { background: var(--ouro); }
+  #t-entrar { grid-area: 2 / 2; }
+  #t-atirar, #t-freio { grid-area: 2 / 3; width: 80px; height: 80px; }
+  #t-atirar { background: var(--sirene-v); color: #fff; box-shadow: 0 4px 0 #7a0d16; }
   #t-freio { background: var(--texto); box-shadow: 0 4px 0 #8f877b; }
-  #t-buzina { background: var(--painel); color: var(--texto); box-shadow: none; border: 1px solid var(--painel-borda); }
+  /* a pe: mirar, atirar e arma; no carro: freio e buzina */
+  body:not(.a-pe) #t-mirar, body:not(.a-pe) #t-atirar, body:not(.a-pe) #t-arma { display: none; }
+  body.a-pe #t-freio, body.a-pe #t-buzina { display: none; }
+
+  /* vida, colete, arma, mira, clarao */
+  #barras { position: absolute; left: var(--ml); bottom: var(--mb); width: 190px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+  #barras .trilho { height: 7px; background: rgba(0,0,0,0.55); border-radius: 2px; }
+  #barra-vida { height: 100%; width: 100%; background: #5ec26a; border-radius: 2px; }
+  #barra-colete { height: 100%; width: 0; background: #4aa3ff; border-radius: 2px; }
+  #arma { position: absolute; right: var(--mr); bottom: var(--mb); padding: 8px 14px; font-size: 20px; font-weight: 700; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; }
+  #mira { position: absolute; left: 50%; top: 50%; width: 36px; height: 36px; transform: translate(-50%, -50%); }
+  #mira svg { width: 100%; height: 100%; overflow: visible; }
+  #mira line { stroke: #fff; stroke-width: 2; filter: drop-shadow(0 0 1.5px rgba(0,0,0,0.9)); transition: transform 0.15s; }
+  #mira.fechada .fora { transform: scale(0.6); transform-origin: 18px 18px; }
+  #flash { position: fixed; inset: 0; pointer-events: none; z-index: 9; opacity: 0; }
+  #flash.dano { background: #d90d0d; animation: some 0.5s ease-out; }
+  #flash.viagem { background: #000; animation: viagem 1s ease-in-out; }
+  @keyframes some { from { opacity: 0.35; } to { opacity: 0; } }
+  @keyframes viagem { 0%, 40% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* celular */
+  #celular {
+    position: fixed; z-index: 25; right: calc(var(--mr) + 10px); bottom: calc(var(--mb) + 10px);
+    width: min(320px, 92vw); height: min(560px, calc(100vh - 40px)); padding: 12px; border-radius: 30px; background: #05080b;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.55); font-family: var(--fonte-texto);
+  }
+  .cel-tela { height: 100%; border-radius: 20px; background: #121a22; display: grid; grid-template-rows: auto auto 1fr auto auto; gap: 8px; padding: 10px 14px 12px; min-height: 0; }
+  .cel-barra { display: flex; justify-content: space-between; font: 600 13px var(--fonte-hud); color: var(--texto-suave); }
+  .cel-titulo { font: 700 24px var(--fonte-hud); color: var(--texto); }
+  .cel-conteudo { overflow-y: auto; display: grid; gap: 6px; align-content: start; min-height: 0; }
+  .cel-item, #loja .item {
+    display: grid; text-align: left; gap: 2px; padding: 10px 12px; border-radius: 10px; font: 600 16px var(--fonte-texto);
+    background: rgba(255,255,255,0.06); color: var(--texto); box-shadow: none; text-transform: none; letter-spacing: 0;
+  }
+  .cel-item small, #loja .item small { font-weight: 400; font-size: 13px; color: var(--texto-suave); }
+  .cel-item:hover, .cel-item:focus-visible, #loja .item:hover, #loja .item:focus-visible { background: rgba(255,255,255,0.14); outline: 2px solid var(--ouro); }
+  .cel-texto { margin: 0; font-size: 15px; line-height: 1.4; color: var(--texto); }
+  .cel-de { margin: 6px 0 0; font: 700 14px var(--fonte-hud); color: var(--ouro); letter-spacing: 0.06em; text-transform: uppercase; }
+  .cel-status { min-height: 1em; font-size: 14px; color: var(--ouro); }
+  .cel-rodape { display: flex; gap: 8px; }
+  .cel-rodape button { flex: 1; padding: 8px; font-size: 14px; background: rgba(255,255,255,0.08); color: var(--texto); box-shadow: none; }
+
+  /* loja */
+  #loja { position: fixed; inset: 0; z-index: 26; display: grid; place-items: center; background: rgba(0,0,0,0.5); padding: var(--mt) var(--mr) var(--mb) var(--ml); }
+  .loja-painel { width: min(560px, 100%); max-height: 100%; overflow-y: auto; background: rgba(16,22,29,0.96); border: 2px solid var(--painel-borda); border-radius: 14px; padding: 20px 24px; display: grid; gap: 10px; }
+  .loja-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .loja-topo h2 { margin: 0; font: 400 26px var(--fonte-titulo); color: var(--texto); }
+  #loja-dinheiro { font: 700 24px var(--fonte-hud); color: #8ee07a; }
+  #loja-sub, #loja-status { margin: 0; font-size: 15px; color: var(--texto-suave); }
+  #loja-status { color: var(--ouro); min-height: 1.2em; }
+  #loja-lista { display: grid; gap: 6px; }
+  #loja .item { grid-template-columns: 1fr auto; align-items: center; }
+  #loja .item small { grid-column: 1; }
+  #loja .item b { grid-column: 2; grid-row: 1 / span 2; font: 700 18px var(--fonte-hud); color: #8ee07a; }
+  #loja .item.perigo span { color: #ff6b74; }
 
   /* telas de toque e estreitas: minimapa vai para o topo, controles de toque embaixo */
   @media (pointer: coarse), (max-width: 720px) {
@@ -217,13 +282,17 @@
     #velocimetro { right: calc(var(--mr) + 150px); bottom: calc(var(--mb) + 14px); min-width: 110px; padding: 6px 10px; }
     #velo-num { font-size: 32px; }
     #prompt { bottom: calc(var(--mb) + 100px); font-size: 15px; }
+    #barras { top: calc(var(--mt) + 121px); bottom: auto; width: 116px; }
+    #velocimetro, #arma { right: calc(var(--mr) + 236px); bottom: calc(var(--mb) + 14px); }
+    #arma { font-size: 16px; }
+    #prompt { bottom: calc(var(--mb) + 190px); }
   }
   /* retrato: objetivo desce para baixo do minimapa */
   @media (max-width: 720px) {
     #objetivo { top: calc(var(--mt) + 126px); left: var(--ml); min-width: 0; max-width: min(64vw, 360px); }
     #mensagens { top: calc(var(--mt) + 210px); width: 88vw; }
-    #velocimetro { right: var(--mr); bottom: calc(var(--mb) + 170px); }
-    #prompt { bottom: calc(var(--mb) + 160px); }
+    #velocimetro, #arma { right: var(--mr); bottom: calc(var(--mb) + 190px); }
+    #prompt { bottom: calc(var(--mb) + 250px); }
   }
   @media (prefers-reduced-motion: reduce) {
     .chip[data-estado="perigo"], #distrito.mostra, .msg { animation: none; }
@@ -235,6 +304,9 @@
 
 <div id="hud" hidden>
   <canvas id="minimapa" width="232" height="232" aria-label="Minimapa"></canvas>
+  <div id="barras" aria-label="Vida e colete"><div class="trilho"><div id="barra-vida"></div></div><div class="trilho"><div id="barra-colete"></div></div></div>
+  <div id="mira" hidden><svg viewBox="0 0 36 36"><g class="fora"><line x1="18" y1="2" x2="18" y2="11"/><line x1="18" y1="25" x2="18" y2="34"/><line x1="2" y1="18" x2="11" y2="18"/><line x1="25" y1="18" x2="34" y2="18"/></g><line x1="17" y1="18" x2="19" y2="18"/></svg></div>
+  <div id="arma" class="painel" hidden></div>
   <div id="distrito"></div>
   <section id="objetivo" class="painel" aria-live="polite">
     <div id="obj-titulo">Próxima missão</div>
@@ -255,6 +327,7 @@
       <span class="chip" id="ficha-roupa" data-estado="limpo"><svg viewBox="0 0 24 24"><path d="M8.5 3L3 6l2 4.2 2-.9V21h10V9.3l2 .9L21 6l-5.5-3a3.5 3.5 0 0 1-7 0z"/></svg>Roupa</span>
     </div>
     <div class="botoes-topo">
+      <button id="btn-celular" type="button">Celular</button>
       <button id="btn-mapa" type="button">Mapa</button>
       <button id="btn-pausa" type="button">Pausa</button>
     </div>
@@ -274,9 +347,12 @@
 <div id="toque" hidden>
   <div id="joystick"><div id="joystick-pino"></div></div>
   <div class="botoes-toque">
+    <button id="t-celular" type="button">Celular</button>
+    <button id="t-arma" type="button">Arma</button>
     <button id="t-buzina" type="button">Buzina</button>
+    <button id="t-mirar" type="button">Mirar</button>
     <button id="t-entrar" type="button">E</button>
-    <span></span>
+    <button id="t-atirar" type="button">Atirar</button>
     <button id="t-freio" type="button">Freio</button>
   </div>
 </div>
@@ -291,10 +367,35 @@
       <span><i style="background:#7fd1ff"></i>Casa segura</span>
       <span><i style="background:#ffb057"></i>Oficina de pintura</span>
       <span><i style="background:#ff2a3a"></i>Área de busca</span>
+      <span><i style="background:#7be38a"></i>Mercado</span>
+      <span><i style="background:#ff6b6b"></i>Arsenal</span>
+      <span><i style="background:#b07cff"></i>Destino</span>
     </div>
     <button id="fechar-mapa" type="button" class="secundario" style="pointer-events:auto">Fechar (M)</button>
   </header>
   <canvas id="mapa-canvas"></canvas>
+</div>
+
+<div id="flash"></div>
+
+<div id="celular" hidden>
+  <div class="cel-tela">
+    <div class="cel-barra"><span id="cel-hora">08:00</span><span>BrasaNet ▂▄▆</span></div>
+    <div id="cel-titulo" class="cel-titulo">Porto Brasa</div>
+    <div id="cel-conteudo" class="cel-conteudo"></div>
+    <div id="cel-status" class="cel-status" aria-live="polite"></div>
+    <div class="cel-rodape"><button id="cel-voltar" type="button">Voltar</button><button id="cel-fechar" type="button">Fechar</button></div>
+  </div>
+</div>
+
+<div id="loja" hidden>
+  <div class="loja-painel">
+    <div class="loja-topo"><h2 id="loja-titulo">Mercado</h2><span id="loja-dinheiro"></span></div>
+    <p id="loja-sub"></p>
+    <div id="loja-lista"></div>
+    <p id="loja-status" aria-live="polite"></p>
+    <button id="loja-sair" type="button" class="secundario">Sair</button>
+  </div>
 </div>
 
 <div id="pausa" class="tela" hidden>
@@ -310,21 +411,23 @@
 
 <div id="inicio" class="tela">
   <div class="cartaz">
-    <div class="linha-versao">Versão 0.1 · protótipo jogável</div>
+    <div class="linha-versao">Versão 0.2 · protótipo jogável</div>
     <h1>Porto<br><span>Brasa</span></h1>
-    <p>Uma cidade litorânea, três serviços e uma polícia que lembra de você. Crimes só viram estrelas se alguém vir. Troque de carro, pinte a lataria ou mude de roupa para limpar sua Ficha.</p>
+    <p>Uma cidade litorânea, três serviços e uma polícia que lembra de você. Crimes só viram estrelas se alguém vir. Compre armas no Arsenal do Porto, coma no Mercado e use o celular para chamar táxi, mecânico ou advogado.</p>
     <div class="controles so-teclado">
       <h2>Controles</h2>
       <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar e dirigir</div>
       <div><kbd>E</kbd> entrar, sair, roubar carro</div>
       <div><kbd>Shift</kbd> correr a pé</div>
       <div><kbd>Espaço</kbd> freio de mão</div>
-      <div>Arraste o mouse para girar a câmera</div>
-      <div><kbd>M</kbd> mapa · <kbd>H</kbd> buzina · <kbd>P</kbd> pausa</div>
+      <div>Mouse gira a câmera (clique na tela)</div>
+      <div>Botão direito mira · esquerdo atira</div>
+      <div><kbd>Q</kbd> ou rodinha troca de arma</div>
+      <div><kbd>Tab</kbd> celular · <kbd>M</kbd> mapa · <kbd>Esc</kbd> pausa</div>
     </div>
     <div class="controles so-toque">
       <h2>Controles de toque</h2>
-      <div class="texto">Joystick à esquerda: andar e dirigir. Arraste no lado direito da tela para girar a câmera. O botão <strong>E</strong> entra e sai do carro; <strong>Freio</strong> é o freio de mão.</div>
+      <div class="texto">Joystick à esquerda: andar e dirigir. Arraste no lado direito da tela para girar a câmera. <strong>E</strong> entra e sai do carro e das lojas. A pé: <strong>Mirar</strong> liga e desliga a mira, <strong>Atirar</strong> atira (ou soca sem arma), <strong>Arma</strong> troca de arma. No carro: <strong>Freio</strong> e <strong>Buzina</strong>. <strong>Celular</strong> abre o celular. Deixe o tablet deitado.</div>
     </div>
     <div id="carga"><span id="carga-texto">Carregando…</span><div class="trilho"><div id="carga-barra"></div></div></div>
     <div class="acoes"><button id="jogar" type="button" disabled>Carregando…</button></div>

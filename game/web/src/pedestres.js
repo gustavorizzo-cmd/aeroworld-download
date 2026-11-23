@@ -163,21 +163,26 @@ export class Pedestres {
     p.icone.visible = true;
   }
 
-  atropelar(p, v) {
+  // Derruba o pedestre (atropelado, baleado, socado). Ele some depois.
+  derrubar(p, vx, vz, vy) {
+    if (p.caido) return;
     p.caido = true;
     p.estado = 'caido';
     p.icone.visible = false;
-    p.vx = v.vx * 0.7;
-    p.vz = v.vz * 0.7;
-    p.vy = 3 + v.velocidade * 0.15;
+    p.vx = vx;
+    p.vz = vz;
+    p.vy = vy;
     p.timer = 12;
-    if (p.denuncia) this.jogo.policia.denunciaCancelada();
     p.denuncia = null;
+    this.panico(p.x, p.z, 25);
+  }
+
+  atropelar(p, v) {
+    this.derrubar(p, v.vx * 0.7, v.vz * 0.7, 3 + v.velocidade * 0.15);
     if (v.motorista === 'jogador') {
       this.jogo.crime('atropelamento', p.x, p.z, 2, { carro: v });
       this.jogo.audio.batida(6);
     }
-    this.panico(p.x, p.z, 25);
   }
 
   atualizar(dt) {

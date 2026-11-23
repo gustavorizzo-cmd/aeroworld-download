@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { instanciar, pintarComPaleta, Fusao } from './assets.js';
-import { headingDe } from './util.js';
+import { headingDe, frente, direita } from './util.js';
 
 // ---------------------------------------------------------------------------
 // Grade de ruas: N x N cruzamentos a cada ESP metros. Blocos de 60 x 60 m.
@@ -46,6 +46,7 @@ export class Mapa {
     this.blocos = [];
     this.estacionados = []; // {x,z,h,modelo,cor}
     this.poi = {};
+    this.lojas = []; // mercados: {x, z (porta), id}
     this.rng = mulberry32(20261123);
     this.fusao = new Fusao();
     this.construir();
@@ -278,6 +279,7 @@ export class Mapa {
       lugares.forEach(([x, z, rot], idx) => {
         if (idx === lojaIdx) {
           this.colocar('loja', cx + x, cz + z + (z < 0 ? -9 : 9), rot, { caixa: true });
+          this.registrarLoja(cx + x, cz + z + (z < 0 ? -9 : 9), rot);
         } else {
           this.colocar('predio_centro', cx + x, cz + z, rot, { caixa: true, escalaY: 0.5 + r() * 0.75 });
         }
@@ -296,6 +298,7 @@ export class Mapa {
         this.poi.oficina = { x: cx + 29, z: cz - 1.5, nome: 'Oficina de Pintura' };
       } else {
         this.colocar('loja', cx + 20, cz - 14, leste, { caixa: true });
+        this.registrarLoja(cx + 20, cz - 14, leste);
         if (bj === 3) this.poi.loja = { x: cx + 26.5, z: cz - 12, nome: 'Mercado da Orla' };
       }
       if (bj === 3) {
@@ -313,6 +316,10 @@ export class Mapa {
     if (d === 'porto') {
       this.colocar('galpao_porto', cx, cz - 5, 0, { caixa: true, paleta: ['Pintura_Galpao', ['#9aa3a8', '#b59a6a', '#8fa08a'][bj % 3]] });
       if (bi === 0 && bj === 3) this.poi.galpao = { x: cx - 7, z: cz - 5 - 10.4 - 5, nome: 'Armazém 3' };
+      if (bi === 0 && bj === 2) {
+        this.poi.arsenal = { x: cx + 7, z: cz - 20, nome: 'Arsenal do Porto' };
+        this.placa('ARSENAL DO PORTO', cx + 7, 5.2, cz - 15.85, Math.PI, '#ff5a4a');
+      }
       if (bi === 0 && bj === 1) this.poi.encontro = { x: cx + 8, z: cz + 22, nome: 'Encontro no Porto' };
       const cores = ['#1f5f8b', '#b8362b', '#2f7d4a', '#d08a22', '#6a6f75'];
       for (let x = -22; x <= 22; x += 4.4) {
@@ -345,6 +352,36 @@ export class Mapa {
       }
       if (r() < 0.6) this.colocar('palmeira', cx + 9, cz, r() * 6, { raio: 0.35 });
     }
+  }
+
+  // A porta do mercado fica na frente, do lado direito da fachada.
+  registrarLoja(x, z, rot) {
+    const f = frente(rot), r = direita(rot);
+    this.lojas.push({ x: x + f.x * 5.6 + r.x * 3.7, z: z + f.z * 5.6 + r.z * 3.7, id: this.lojas.length });
+  }
+
+  // Letreiro com texto desenhado num canvas, numa fachada.
+  placa(texto, x, y, z, rot, cor) {
+    const cv = document.createElement('canvas');
+    cv.width = 1024;
+    cv.height = 160;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#1b1d22';
+    g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = cor;
+    g.font = 'bold 96px "Barlow Condensed", Impact, "Arial Narrow", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(texto, cv.width / 2, cv.height / 2 + 4);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.Mesh(new THREE.BoxGeometry(6.2, 1.0, 0.2), [
+      this.material('#1b1d22'), this.material('#1b1d22'), this.material('#1b1d22'),
+      this.material('#1b1d22'), new THREE.MeshBasicMaterial({ map: tex }), this.material('#1b1d22'),
+    ]);
+    m.position.set(x, y, z);
+    m.rotation.y = rot;
+    this.cena.add(m);
   }
 
   construirOrlaEPraia() {

@@ -7,8 +7,11 @@ as mesmas mecânicas:
 
 | Versão | Pasta | Para quê |
 |---|---|---|
-| **Godot 4** (principal, v0.2) | [`godot/`](godot/README.md) | onde o jogo cresce: tem também mercado, celular, armas, vida e hospital |
-| Navegador (Three.js, v0.1) | `web/` | demo rápida: abre com dois cliques ou por link |
+| **Godot 4** (v0.2) | [`godot/`](godot/README.md) | onde o jogo cresce: editor visual, exporta .exe para Windows |
+| **Navegador** (Three.js, v0.2) | `web/` | joga por link em qualquer lugar, inclusive **tablet e celular** (controles de toque) |
+
+As duas têm o mesmo conteúdo: cidade, polícia com estrelas e Ficha, 3 missões,
+mercado, Arsenal, armas, vida e colete, hospital e celular.
 
 ## Como jogar no navegador
 
@@ -17,14 +20,22 @@ dois cliques. O arquivo é único e já traz o Three.js e todos os modelos, ent�
 funciona sem internet. Só as fontes vêm do Google Fonts; sem internet o jogo usa
 as fontes do sistema.
 
-| Ação | Teclado | Toque |
+| Ação | Teclado e mouse | Toque (tablet) |
 |---|---|---|
 | Andar / dirigir | W A S D ou setas | joystick à esquerda |
 | Entrar, sair ou roubar carro | E | botão **E** |
 | Correr (a pé) | Shift | empurrar o joystick até o fim |
 | Freio de mão | Espaço | botão **Freio** |
 | Girar a câmera | arrastar o mouse | arrastar no lado direito |
-| Mapa · buzina · pausa · som | M · H · P/Esc · N | botões **Mapa** e **Pausa** |
+| Mirar | botão direito do mouse | **Mirar** (liga e desliga) |
+| Atirar / socar | botão esquerdo | **Atirar** (com mira assistida) |
+| Trocar de arma | Q, rodinha ou 1 a 4 | **Arma** |
+| Celular | Tab | **Celular** |
+| Mapa · buzina · pausa · som | M · H · Esc · N | botões **Mapa**, **Buzina** e **Pausa** |
+
+No computador, clique na tela para o mouse girar a câmera (Esc solta o mouse e
+pausa). No tablet, os botões mudam conforme a situação: a pé aparecem Mirar,
+Atirar e Arma; no carro, Freio e Buzina.
 
 O progresso (dinheiro, missões e roupa) é salvo no navegador.
 
@@ -75,6 +86,9 @@ web/
     pedestres.js     pedestres, fuga, atropelamento e testemunhas
     policia.js       estrelas, Ficha, visão, perseguição, busca, bloqueios, helicóptero
     missoes.js       as 3 missões e os marcadores
+    armas.js         armas, tiros, mira assistida no toque, explosões, polícia atirando
+    celular.js       celular: contatos, mensagens, GPS, carteira
+    loja.js          telas do Mercado e do Arsenal
     hud.js           HUD, minimapa e mapa grande
     camera.js        câmera em 3ª pessoa
     audio.js         sons com WebAudio

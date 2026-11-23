@@ -26,6 +26,8 @@ export class Policia {
     this.cdBloqueio = 6;
     this.prendendo = 0;
     this.carencia = 3; // segundos sem a policia agir (inicio do jogo e depois de preso)
+    this.cdAtaque = 0;
+    this.cdHeli = 0;
     this.bloqueios = [];
     this.heli = null;
     // luz do helicoptero criada desde o inicio (adicionar luz depois recompila todos os shaders)
@@ -40,7 +42,7 @@ export class Policia {
   }
 
   olhos() {
-    return this.jogo.veiculos.filter((v) => v.policia && v.motorista === 'ia');
+    return this.jogo.veiculos.filter((v) => v.policia && v.motorista === 'ia' && !v.queimado);
   }
 
   unidades() {
@@ -188,6 +190,8 @@ export class Policia {
     const px = j.px, pz = j.pz;
     this.cdBatida -= dt;
     this.cdBloqueio -= dt;
+    this.cdAtaque -= dt;
+    this.cdHeli -= dt;
 
     if (this.carencia > 0) {
       this.carencia -= dt;
@@ -258,6 +262,9 @@ export class Policia {
     this.modo = 'limpo';
     this.zona = null;
     this.prendendo = 0;
+    this.vendo = false;
+    this.tVisao = 0;
+    this.carencia = Math.max(this.carencia, 2);
     this.ficha.expira = this.jogo.tempo + 150;
     this.dispensar();
   }
@@ -283,6 +290,32 @@ export class Policia {
       iniciarIATrafego(this.jogo, v, n, pick(mapa.vizinhos(n)));
     }
     if (this.heli) this.heli.saindo = true;
+  }
+
+  // O jogador atacou a policia (tiro em viatura ou helicoptero).
+  atacada(msg) {
+    if (this.cdAtaque > 0 || this.carencia > 0) return;
+    this.cdAtaque = 6;
+    const j = this.j;
+    this.registrar({ carro: j.veiculo, roupa: j.veiculo ? null : j.roupaId });
+    this.aplicar(this.estrelas < 3 ? 3 : this.estrelas + 1, msg);
+    this.modo = 'perseguicao';
+    this.semVer = 0;
+    this.ultima = { x: j.px, z: j.pz };
+  }
+
+  danoHeli(dano) {
+    const h = this.heli;
+    if (!h || h.saindo) return;
+    h.vida -= dano * 0.35;
+    if (h.vida <= 0) {
+      const { x, y, z } = h;
+      this.jogo.audio.explosao();
+      this.jogo.hud.mensagem('Você derrubou o helicóptero! Outro vai demorar a chegar.', 3);
+      this.removerHeli();
+      this.cdHeli = 60;
+      this.jogo.armas.explosaoVisual(x, y, z);
+    }
   }
 
   // ------------------------------------------------------------------ unidades
@@ -327,7 +360,7 @@ export class Policia {
         else this.spawnUnidade();
       }
     }
-    if (this.estrelas >= 4 && (!this.heli || this.heli.saindo)) this.criarHeli();
+    if (this.estrelas >= 4 && (!this.heli || this.heli.saindo) && this.cdHeli <= 0) this.criarHeli();
   }
 
   alvoPorRota(v, tx, tz, dt) {
@@ -405,7 +438,7 @@ export class Policia {
   // ------------------------------------------------------------------ prisao
   atualizarPrisao(dt) {
     const j = this.j;
-    if (this.estrelas === 0 || this.modo !== 'perseguicao' || this.carencia > 0 || this.jogo.cenaPrisao) {
+    if (this.estrelas === 0 || this.modo !== 'perseguicao' || this.carencia > 0 || this.jogo.cenaPrisao || this.jogo.cenaHospital) {
       this.prendendo = Math.max(0, this.prendendo - dt * 2);
       return;
     }
@@ -414,7 +447,12 @@ export class Policia {
     const perto = this.olhos().some((v) => dist(v.x, v.z, j.px, j.pz) < raio && v.velocidade < 4);
     if (lento && perto) this.prendendo += dt;
     else this.prendendo = Math.max(0, this.prendendo - dt * 1.5);
-    if (this.prendendo > 2.5) this.jogo.preso();
+    if (this.prendendo > this.limitePrisao()) this.jogo.preso();
+  }
+
+  // Com 3+ estrelas a policia atira mais e demora mais para prender.
+  limitePrisao() {
+    return this.estrelas < 3 ? 2.5 : 4;
   }
 
   // ------------------------------------------------------------------ bloqueios
@@ -545,7 +583,7 @@ export class Policia {
     if (this.heli) this.removerHeli();
     const obj = instanciar('helicoptero_policia');
     this.heli = {
-      obj, luz: this.luzHeli, alvoLuz: this.alvoLuz, x: j.px + 90, z: j.pz + 90, y: 45, h: 0, saindo: false,
+      obj, luz: this.luzHeli, alvoLuz: this.alvoLuz, x: j.px + 90, z: j.pz + 90, y: 45, h: 0, saindo: false, vida: 100,
       rotor: obj.getObjectByName('rotor_principal'), cauda: obj.getObjectByName('rotor_cauda'),
     };
     jogo.cena.add(obj);

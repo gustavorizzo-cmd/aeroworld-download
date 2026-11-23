@@ -12,6 +12,9 @@ import { CameraJogo } from './camera.js';
 import { Audio } from './audio.js';
 import { Entrada } from './entrada.js';
 import { passoFisica } from './fisica.js';
+import { Armas } from './armas.js';
+import { Loja } from './loja.js';
+import { Celular } from './celular.js';
 import { dist, pick, armazenamento, formatarDinheiro } from './util.js';
 
 const $ = (id) => document.getElementById(id);
@@ -67,6 +70,8 @@ async function iniciar() {
     cena, camera, renderer,
     veiculos: [], obstaculos: [], tapetes: [],
     tempo: 0, dinheiro: salvo.dinheiro ?? 200, pausado: true, promptAtual: '',
+    toque: movel, uiAberta: '', cenaHospital: 0, destino: null, mensagens: [],
+    lojasRoubadas: {}, estat: { prisoes: 0, mortes: 0 },
     audio: new Audio(),
     crime(tipo, x, z, estrelas, op) {
       this.policia.crime(tipo, x, z, estrelas, op);
@@ -75,11 +80,75 @@ async function iniciar() {
       this.policia.eventoBatida(a, b, forca);
     },
     salvar() {
-      armazenamento.gravar('pb_jogo', { dinheiro: this.dinheiro, roupa: this.jogador.roupaId });
+      armazenamento.gravar('pb_jogo', {
+        dinheiro: this.dinheiro, roupa: this.jogador.roupaId,
+        armas: this.armas.inventario, colete: this.jogador.colete,
+      });
+    },
+    novaMensagem(de, texto, avisar = true) {
+      this.mensagens.push({ de, texto, lida: false });
+      if (avisar) {
+        this.hud.mensagem(`Nova mensagem de ${de} (${this.toque ? 'botão Celular' : 'Tab abre o celular'}).`, 3);
+        this.audio.notificacao();
+      }
+    },
+    abrirUi(nome) {
+      if (this.uiAberta === 'celular' && nome === 'loja') this.celular.el.hidden = true;
+      this.uiAberta = nome;
+      this.entrada.limpar();
+      this.entrada.destravar();
+    },
+    fecharUi() {
+      this.uiAberta = '';
+      this.entrada.limpar();
+      if (!this.pausado && !this.testando) this.entrada.travar();
+    },
+    // Viagem rapida (taxi): tela escura rapida e o jogador aparece no destino.
+    viajar(x, z, msg) {
+      const f = $('flash');
+      f.classList.remove('viagem');
+      void f.offsetWidth;
+      f.classList.add('viagem');
+      this.jogador.x = x;
+      this.jogador.z = z;
+      this.jogador.h = 0;
+      this.cam.yaw = 0;
+      this.cam.pos.set(x, 6, z + 6);
+      this.hud.mensagem(msg, 2.5);
+    },
+    assaltarLoja(id) {
+      if ((this.lojasRoubadas[id] ?? -1) > this.tempo) {
+        this.hud.mensagem('O caixa está vazio. Volte mais tarde.', 2.5);
+        return 'vazio';
+      }
+      const valor = 250 + Math.floor(Math.random() * 351);
+      this.dinheiro += valor;
+      this.lojasRoubadas[id] = this.tempo + 180;
+      const porta = this.mapa.lojas[id] || this.jogador;
+      this.hud.mensagem(`Você levou ${formatarDinheiro(valor)} do caixa. A câmera de segurança gravou tudo!`, 3.5);
+      this.audio.alerta();
+      this.pedestres.panico(porta.x, porta.z, 30);
+      // a camera denuncia na hora: a policia sabe a roupa e onde foi
+      this.policia.denuncia({ tipo: 'assalto', x: porta.x, z: porta.z, estrelas: 2, carro: null, roupa: this.jogador.roupaId });
+      return 'roubou';
+    },
+    morreu() {
+      if (this.cenaHospital || this.cenaPrisao) return;
+      this.cenaHospital = 3;
+      this.estat.mortes++;
+      const conta = Math.round(this.dinheiro * 0.1);
+      this.dinheiro -= conta;
+      this.hud.banner('Hospitalizado', `Conta do hospital: ${formatarDinheiro(conta)}. Você acorda na casa segura.`, 3);
+      this.missoes.falhar('Você foi parar no hospital.');
+      this.audio.alerta();
     },
     preso() {
-      if (this.cenaPrisao) return;
+      if (this.cenaPrisao || this.cenaHospital) return;
       this.cenaPrisao = 2.6;
+      this.estat.prisoes++;
+      const tinhaArmas = Object.keys(this.armas.inventario).length > 1;
+      this.armas.confiscar();
+      if (tinhaArmas) this.hud.mensagem('Suas armas foram confiscadas.', 3);
       const multa = Math.round(this.dinheiro * 0.15);
       this.dinheiro -= multa;
       this.hud.banner('Preso', `Fiança de ${formatarDinheiro(multa)}. Você volta para a casa segura.`, 2.6);
@@ -103,6 +172,24 @@ async function iniciar() {
   const entrada = new Entrada(canvas);
   const cam = new CameraJogo(camera, jogo.mapa);
   cam.yaw = 0;
+  jogo.entrada = entrada;
+  jogo.cam = cam;
+  jogo.armas = new Armas(jogo);
+  jogo.armas.prepararModelo(jogo.jogador);
+  for (const [a, balas] of Object.entries(salvo.armas || {})) jogo.armas.inventario[a] = balas;
+  jogo.jogador.colete = salvo.colete || 0;
+  jogo.loja = new Loja(jogo);
+  jogo.celular = new Celular(jogo);
+  if (jogo.missoes.feitas === 0) {
+    jogo.novaMensagem('Rui', `Bem-vindo de volta a Porto Brasa. Tem trabalho pra você: vai até o marcador amarelo do lado da casa. Se precisar, me chama no celular (${movel ? 'botão Celular' : 'tecla Tab'}).`, false);
+  }
+  // marcador roxo do destino do GPS
+  const marcadorDestino = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.4, 1.4, 40, 20, 1, true),
+    new THREE.MeshBasicMaterial({ color: '#b07cff', transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide })
+  );
+  marcadorDestino.visible = false;
+  cena.add(marcadorDestino);
 
   // carros estacionados (roubar e crime) + o carro da casa segura (e seu)
   for (const e of jogo.mapa.estacionados) {
@@ -148,6 +235,10 @@ async function iniciar() {
       if (!jogo.promptAtual && v.velocidade < 4) jogo.promptAtual = 'E  sair do carro';
       return;
     }
+    for (const l of jogo.mapa.lojas) {
+      if (dist(j.x, j.z, l.x, l.z) < 2.4) return entradaLoja('mercado', l.id, 'Mercado');
+    }
+    if (dist(j.x, j.z, poi.arsenal.x, poi.arsenal.z) < 2.6) return entradaLoja('arsenal', -1, 'Arsenal do Porto');
     const naCasa = dist(j.x, j.z, poi.casa.x, poi.casa.z) < 2.6;
     if (naCasa) {
       if (p.modo === 'perseguicao') jogo.promptAtual = 'Não dá para entrar com a polícia olhando';
@@ -167,6 +258,39 @@ async function iniciar() {
     }
     const perto = j.veiculoProximo();
     if (perto) jogo.promptAtual = perto.doJogador ? 'E  entrar no carro' : perto.motorista === 'ia' ? 'E  roubar o carro (crime)' : 'E  roubar o carro (crime)';
+  }
+
+  function entradaLoja(tipo, id, nome) {
+    if (jogo.policia.estrelas > 0) {
+      jogo.promptAtual = `O ${nome} não atende quem está sendo procurado`;
+      return;
+    }
+    jogo.promptAtual = `E  entrar no ${nome}`;
+    if (entrada.apertou('KeyE', 'KeyF')) {
+      entrada.apertadas.delete('KeyE');
+      entrada.apertadas.delete('KeyF');
+      jogo.loja.abrir(tipo, id);
+    }
+  }
+
+  function hospital(dt) {
+    if (!jogo.cenaHospital) return false;
+    jogo.cenaHospital -= dt;
+    const j = jogo.jogador;
+    j.obj.rotation.x = -Math.PI / 2;
+    if (jogo.cenaHospital <= 0) {
+      jogo.cenaHospital = 0;
+      if (j.veiculo) j.sair(true);
+      j.x = poi.casa.x;
+      j.z = poi.casa.z;
+      j.h = 0;
+      j.vida = 100;
+      j.caido = 0;
+      j.obj.rotation.x = 0;
+      jogo.policia.limpar();
+      jogo.salvar();
+    }
+    return true;
   }
 
   function prisao(dt) {
@@ -206,6 +330,7 @@ async function iniciar() {
     $('hud').hidden = false;
     if (movel) $('toque').hidden = false;
     canvas.focus();
+    if (!jogo.uiAberta && !jogo.testando) entrada.travar();
   };
   botaoJogar.addEventListener('click', comecar);
   $('continuar').addEventListener('click', comecar);
@@ -220,8 +345,15 @@ async function iniciar() {
   });
   const pausar = () => {
     if (jogo.pausado || !telaInicio.hidden) return;
+    if (jogo.uiAberta === 'celular') jogo.celular.fechar();
+    else if (jogo.uiAberta === 'loja') jogo.loja.fechar();
     jogo.pausado = true;
     telaPausa.hidden = false;
+    entrada.destravar();
+  };
+  // Esc do navegador solta o mouse: pausa (a menos que tenha sido para abrir uma tela)
+  entrada.aoPerderTrava = () => {
+    if (!jogo.uiAberta && !jogo.pausado) pausar();
   };
   $('btn-pausa').addEventListener('click', pausar);
   $('btn-mapa').addEventListener('click', () => jogo.hud.alternarMapa());
@@ -230,16 +362,32 @@ async function iniciar() {
     [$('t-entrar'), 'KeyE', null],
     [$('t-freio'), null, 'freioMao'],
     [$('t-buzina'), 'KeyH', null],
+    [$('t-mirar'), 'ToqueMirar', null],
+    [$('t-atirar'), 'Mouse0', 'atirar'],
+    [$('t-arma'), 'KeyQ', null],
+    [$('t-celular'), 'Tab', null],
   ]);
+  $('btn-celular').addEventListener('click', () => !jogo.pausado && jogo.celular.alternar());
   document.addEventListener('visibilitychange', () => document.hidden && pausar());
 
   // ---- laco principal
   function passo(dt) {
+    if (jogo.uiAberta === 'loja') return; // dentro da loja o mundo para
     jogo.tempo += dt;
-    if (!prisao(dt)) {
-      servicos(dt);
+    const cena = prisao(dt) || hospital(dt);
+    if (!cena) {
+      if (!jogo.uiAberta) servicos(dt);
+      else jogo.promptAtual = '';
       jogo.jogador.atualizar(dt, entrada, cam.yaw);
     } else jogo.promptAtual = '';
+    jogo.armas.atualizar(dt, entrada, !cena && !jogo.uiAberta);
+    if (jogo.destino && dist(jogo.jogador.px, jogo.jogador.pz, jogo.destino.x, jogo.destino.z) < 8) {
+      jogo.destino = null;
+      jogo.hud.mensagem('Você chegou ao destino.', 2);
+    }
+    marcadorDestino.visible = !!jogo.destino;
+    if (jogo.destino) marcadorDestino.position.set(jogo.destino.x, 20, jogo.destino.z);
+    if (jogo.celular.aberto()) jogo.celular.atualizarHora();
     jogo.trafego.atualizar(dt);
     jogo.policia.atualizar(dt);
     passoFisica(jogo, dt);
@@ -250,7 +398,6 @@ async function iniciar() {
     cam.atualizar(dt, jogo, entrada);
   }
   // Para testes automatizados: roda `seg` segundos de jogo sem esperar o relogio.
-  jogo.entrada = entrada;
   jogo.simular = (seg, dt = 1 / 30) => {
     for (let t = 0; t < seg; t += dt) {
       passo(dt);
@@ -265,10 +412,16 @@ async function iniciar() {
     antes = agora;
 
     if (entrada.apertou('Escape', 'KeyP')) {
-      if (jogo.pausado && telaInicio.hidden) comecar();
+      if (jogo.uiAberta === 'celular') jogo.celular.voltar();
+      else if (jogo.uiAberta === 'loja') jogo.loja.fechar();
+      else if (jogo.pausado && telaInicio.hidden) comecar();
       else pausar();
+    } else if (entrada.apertou('Tab') && !jogo.pausado && jogo.uiAberta !== 'loja') {
+      jogo.celular.alternar();
+    } else if (entrada.apertou('KeyE') && jogo.uiAberta === 'loja') {
+      jogo.loja.fechar();
     }
-    if (entrada.apertou('KeyM')) jogo.hud.alternarMapa();
+    if (entrada.apertou('KeyM') && !jogo.uiAberta) jogo.hud.alternarMapa();
     if (entrada.apertou('KeyN')) btnSom.click();
 
     if (!jogo.pausado) passo(dt);

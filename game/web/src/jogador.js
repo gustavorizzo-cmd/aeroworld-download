@@ -27,6 +27,9 @@ export class Jogador {
     this.fase = 0;
     this.veiculo = null;
     this.caido = 0;
+    this.vida = 100;
+    this.colete = 0;
+    this.tSoco = 0;
     jogo.cena.add(this.obj);
   }
 
@@ -54,10 +57,28 @@ export class Jogador {
     return this.vestir(id);
   }
 
+  ferir(dano) {
+    const jogo = this.jogo;
+    if (jogo.cenaPrisao || jogo.cenaHospital || this.vida <= 0) return;
+    const absorvido = Math.min(this.colete, dano);
+    this.colete -= absorvido;
+    this.vida = Math.max(0, this.vida - (dano - absorvido));
+    jogo.hud.dano();
+    if (this.vida <= 0) jogo.morreu();
+  }
+
+  curar(qtd) {
+    this.vida = Math.min(100, this.vida + qtd);
+  }
+
+  socar() {
+    this.tSoco = 0.25;
+  }
+
   veiculoProximo() {
     let melhor = null, md = 3.4 * 3.4;
     for (const v of this.jogo.veiculos) {
-      if (v.voando) continue;
+      if (v.voando || v.queimado) continue;
       const d = dist2(v.x, v.z, this.x, this.z);
       if (d < md) {
         md = d;
@@ -88,9 +109,9 @@ export class Jogador {
     jogo.audio.porta();
   }
 
-  sair() {
+  sair(forcar = false) {
     const v = this.veiculo;
-    if (!v || v.velocidade > 5) return;
+    if (!v || (v.velocidade > 5 && !forcar)) return;
     const e = direita(v.h);
     this.x = v.x - e.x * 1.7;
     this.z = v.z - e.z * 1.7;
@@ -105,26 +126,29 @@ export class Jogador {
 
   atualizar(dt, entrada, yawCamera) {
     const jogo = this.jogo;
-    const ex = entrada.eixos();
-    if (entrada.apertou('KeyE', 'KeyF') && !jogo.policia.prendendo) {
+    const livre = !jogo.uiAberta;
+    const ex = livre ? entrada.eixos() : { x: 0, y: 0 };
+    if (livre && entrada.apertou('KeyE', 'KeyF') && !jogo.policia.prendendo) {
       if (this.veiculo) this.sair();
       else {
         const v = this.veiculoProximo();
         if (v) this.entrar(v);
       }
     }
-    if (entrada.apertou('KeyH') && this.veiculo) jogo.audio.buzina();
+    if (livre && entrada.apertou('KeyH') && this.veiculo) jogo.audio.buzina();
+    if (this.vida < 40 && this.vida > 0) this.vida = Math.min(40, this.vida + 1.5 * dt);
 
     if (this.veiculo) {
       const v = this.veiculo;
       v.ctrl.acel = ex.y > 0 ? ex.y : 0;
       v.ctrl.freio = ex.y < 0 ? -ex.y : 0;
       v.ctrl.virar = ex.x;
-      v.ctrl.freioMao = entrada.freioMao();
+      v.ctrl.freioMao = livre && entrada.freioMao();
       return;
     }
 
     // ---- a pe
+    const mirando = jogo.armas.mirando;
     if (this.caido > 0) {
       this.caido -= dt;
       this.obj.rotation.x = -Math.PI / 2;
@@ -134,15 +158,20 @@ export class Jogador {
       const dx = f.x * ex.y + r.x * ex.x;
       const dz = f.z * ex.y + r.z * ex.x;
       const mag = Math.min(1, Math.hypot(dx, dz));
-      const alvoVel = mag > 0.1 ? (entrada.correr() ? 7.5 : 4.2) * mag : 0;
+      const corre = entrada.correr() && !mirando;
+      const alvoVel = mag > 0.1 ? (mirando ? 3 : corre ? 7.5 : 4.2) * mag : 0;
       this.vel = suavizar(this.vel, alvoVel, 10, dt);
-      if (mag > 0.1) {
-        const alvoH = headingDe(dx, dz);
-        this.h += angDiff(this.h, alvoH) * Math.min(1, dt * 12);
+      if (mirando) this.h += angDiff(this.h, yawCamera) * Math.min(1, dt * 18);
+      else if (mag > 0.1) this.h += angDiff(this.h, headingDe(dx, dz)) * Math.min(1, dt * 12);
+      if (mirando && mag > 0.1) {
+        // anda de lado mirando
+        this.x += (dx / mag) * this.vel * dt;
+        this.z += (dz / mag) * this.vel * dt;
+      } else {
+        const fw = frente(this.h);
+        this.x += fw.x * this.vel * dt;
+        this.z += fw.z * this.vel * dt;
       }
-      const fw = frente(this.h);
-      this.x += fw.x * this.vel * dt;
-      this.z += fw.z * this.vel * dt;
     }
     resolverCirculoNoMundo(jogo.mapa, this, 0.35);
     for (const v of jogo.veiculos) {
@@ -157,6 +186,7 @@ export class Jogador {
           this.z += (dz / d) * (rr - d);
           if (v.velocidade > 9 && this.caido <= 0) {
             this.caido = 1.6;
+            this.ferir(v.velocidade * 1.5);
             jogo.hud.mensagem('Você foi atropelado!', 1.5);
           }
         }
@@ -169,8 +199,17 @@ export class Jogador {
     this.fase += this.vel * dt * 1.9;
     const s = Math.sin(this.fase) * amp;
     const [be, bd, pe, pd] = this.membros;
-    if (be) be.rotation.x = s;
-    if (bd) bd.rotation.x = -s;
+    this.tSoco = Math.max(0, this.tSoco - dt);
+    let rotBe = s, rotBd = -s;
+    if (mirando && jogo.armas.armado()) {
+      const mira = jogo.cam.miraPitch;
+      rotBd = Math.PI / 2 + mira;
+      rotBe = Math.PI / 2 - 0.3 + mira;
+    } else if (this.tSoco > 0) {
+      rotBd = (Math.PI / 2) * (this.tSoco / 0.25);
+    }
+    if (be) be.rotation.x = rotBe;
+    if (bd) bd.rotation.x = rotBd;
     if (pe) pe.rotation.x = -s;
     if (pd) pd.rotation.x = s;
     this.obj.position.set(this.x, this.y, this.z);

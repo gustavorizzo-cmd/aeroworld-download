@@ -43,6 +43,9 @@ export class Veiculo {
     this.ativo = true;
     this.missao = false;
     this.fumaca = 0;
+    this.queimado = false;
+    this.iaQueimando = false;
+    this.cdTiro = 0;
     if (this.policia) this.prepararSirenes();
     jogo.cena.add(this.obj);
     jogo.veiculos.push(this);
@@ -98,9 +101,7 @@ export class Veiculo {
   dano(forca) {
     const antes = this.vida;
     this.vida = Math.max(0, this.vida - (forca - 5) * 1.7);
-    if (antes > 0 && this.vida <= 0 && this.motorista === 'jogador') {
-      this.jogo.hud.mensagem('O motor morreu. Saia do carro (E).', 3);
-    }
+    if (antes > 0 && this.vida <= 0) this.jogo.armas.incendiar(this);
   }
 
   atualizar(dt) {
